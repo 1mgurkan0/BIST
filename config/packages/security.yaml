@@ -33,12 +33,13 @@ security:
         invalidate_session: true
 
   access_control:
-    - { path: ^/register,       roles: PUBLIC_ACCESS }
-    - { path: ^/verify,         roles: PUBLIC_ACCESS }
-    - { path: ^/login,          roles: PUBLIC_ACCESS }
+    - { path: ^/register,         roles: PUBLIC_ACCESS }
+    - { path: ^/verify,           roles: PUBLIC_ACCESS }
+    - { path: ^/login,            roles: PUBLIC_ACCESS }
     - { path: ^/forgot-password,  roles: PUBLIC_ACCESS }
     - { path: ^/reset-password,   roles: PUBLIC_ACCESS }
-    - { path: ^/,               roles: PUBLIC_ACCESS  }
+    - { path: ^/portfolio,        roles: ROLE_USER }
+    - { path: ^/,                 roles: PUBLIC_ACCESS  }
 
 when@test:
   security:
