@@ -1,0 +1,250 @@
+{% block stylesheets %}
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="icon" style="border-radius: 20px" type="image/png" href="{{ asset('images/logo/bam-logo.ico') }}?v=1">
+    <title>BAM | Giriş</title>
+    <style>
+        body {
+            background-color: #0b0c10;
+            font-family: 'Outfit', sans-serif;
+            color: #e2e8f0;
+            margin: 0;
+        }
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+            position: relative;
+        }
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: -20%; right: -10%;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(234, 179, 8, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .auth-wrapper {
+            background: #121318;
+            border: 1px solid #1f2129;
+            border-radius: 24px;
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6);
+            width: 100%;
+            max-width: 1050px;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+            z-index: 10;
+        }
+        .auth-brand {
+            background: linear-gradient(145deg, #171821 0%, #0b0c10 100%);
+            border-right: 1px solid #1f2129;
+            padding: 4rem;
+            width: 45%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+        .auth-brand::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(rgba(234, 179, 8, 0.15) 1px, transparent 1px);
+            background-size: 32px 32px;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        .auth-form-side {
+            padding: 4rem;
+            width: 55%;
+            background: #121318;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .logo-box {
+            width: 64px; height: 64px;
+            background: #000;
+            border-radius: 18px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; font-weight: 800; color: #0b0c10;
+            margin-bottom: 2rem;
+            box-shadow: 0 12px 24px -6px rgba(234, 179, 8, 0.4);
+            position: relative;
+            z-index: 2;
+        }
+        .brand-title {
+            font-size: 2.75rem; font-weight: 800; color: #ffffff;
+            line-height: 1.1; margin-bottom: 1rem; position: relative; z-index: 2;
+        }
+        .brand-title span { color: #eab308; }
+        .brand-text {
+            color: #94a3b8; font-size: 1.1rem; line-height: 1.7;
+            position: relative; z-index: 2;
+        }
+        .form-title { font-size: 1.8rem; font-weight: 700; color: #ffffff; margin-bottom: 0.5rem; }
+        .form-subtitle { color: #64748b; font-size: 1rem; margin-bottom: 2.5rem; }
+
+        .input-group-custom { margin-bottom: 1.5rem; }
+        .label-custom {
+            display: block; font-size: 0.75rem; font-weight: 700;
+            color: #94a3b8; letter-spacing: 1.2px; margin-bottom: 0.5rem; text-transform: uppercase;
+        }
+        .field-custom {
+            width: 100%; background: #0b0c10; border: 1px solid #232530;
+            border-radius: 12px; padding: 0.9rem 1.25rem;
+            color: #f8fafc; font-size: 1rem; font-family: 'Outfit', sans-serif;
+            transition: all 0.2s ease;
+        }
+        .field-custom:focus {
+            outline: none; border-color: #eab308;
+            box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.1);
+            background: #101116;
+        }
+        .field-custom.is-invalid {
+            border-color: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+        }
+
+        .check-custom { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem; margin-bottom: 2rem; }
+        .check-custom input {
+            appearance: none; width: 22px; height: 22px; min-width: 22px;
+            border: 1px solid #333645; border-radius: 6px;
+            background: #0b0c10; cursor: pointer; position: relative;
+            transition: all 0.2s; margin: 0;
+        }
+        .check-custom input:focus { box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.1); border-color: #eab308; outline: none; }
+        .check-custom input:checked { background: #eab308; border-color: #eab308; }
+        .check-custom input:checked::after {
+            content: '✓'; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); color: #0b0c10; font-size: 14px; font-weight: 900;
+        }
+        .check-custom label { font-size: 0.95rem; color: #94a3b8; cursor: pointer; margin: 0; }
+
+        .btn-custom {
+            background: #eab308; color: #0b0c10;
+            border: none; border-radius: 12px;
+            padding: 1.1rem; font-size: 1.1rem; font-weight: 700;
+            width: 100%; cursor: pointer; transition: all 0.3s ease;
+            box-shadow: 0 8px 20px -6px rgba(234, 179, 8, 0.4);
+            display: flex; justify-content: center; align-items: center; gap: 0.5rem;
+            letter-spacing: 0.5px;
+        }
+        .btn-custom:hover { background: #facc15; transform: translateY(-2px); box-shadow: 0 12px 25px -6px rgba(234, 179, 8, 0.5); }
+        .btn-custom:active { transform: translateY(0); }
+
+        .bottom-link { text-align: center; margin-top: 2rem; font-size: 1rem; color: #64748b; border-top: 1px solid #1f2129; padding-top: 2rem;}
+        .bottom-link a { color: #ffffff; font-weight: 700; text-decoration: none; transition: color 0.2s; margin-left: 0.5rem;}
+        .bottom-link a:hover { color: #eab308; }
+
+        .forgot-link { color: #eab308; font-size: 0.85rem; font-weight: 500; text-decoration: none; transition: opacity 0.2s; }
+        .forgot-link:hover { opacity: 0.8; }
+
+        .flash-alert {
+            padding: 1rem 1.25rem; border-radius: 12px; font-size: 0.9rem; font-weight: 500; margin-bottom: 1.5rem;
+            display: flex; align-items: center; gap: 0.75rem;
+        }
+        .flash-error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .flash-success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); color: #22c55e; }
+
+        @media (max-width: 992px) {
+            .auth-wrapper { flex-direction: column; max-width: 550px; }
+            .auth-brand { width: 100%; padding: 3rem; text-align: center; align-items: center; border-right: none; border-bottom: 1px solid #1f2129; }
+            .auth-form-side { width: 100%; padding: 3rem; }
+            .brand-title { font-size: 2.25rem; }
+        }
+        @media (max-width: 576px) {
+            .auth-form-side, .auth-brand { padding: 2rem; }
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div class="auth-container">
+        <div class="auth-wrapper">
+
+            <div class="auth-brand">
+                <div class="logo-box">
+                    <a href="{{path('app-home')}}"><img src="{{ asset('images/logo/bam-images.png') }}" alt="BAM Logo" width="120" height="100"></a>
+                </div>
+                <h1 class="brand-title">BAM <span>Sistem</span></h1>
+                <p class="brand-text">Yapay zeka destekli borsa analiz motoru ile portföyünüzü en üst seviyeye taşıyın. Verinin gücünü keşfedin.</p>
+            </div>
+
+            <div class="auth-form-side">
+                <h2 class="form-title">Tekrar Hoş Geldiniz</h2>
+                <p class="form-subtitle">Hesabınıza giriş yapın.</p>
+
+                {% if error %}
+                    <div class="flash-alert flash-error">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        {{ error.messageKey | trans(error.messageData, 'Login') | raw }}
+                    </div>
+                {% endif %}
+
+                {% for type, messages in app.flashes %}
+                    {% for message in messages %}
+                        <div class="flash-alert flash-{{ type == 'error' or type == 'danger' ? 'error' : 'success' }}">
+                            <i class="bi bi-{{ type == 'error' or type == 'danger' ? 'exclamation-triangle' : 'check-circle' }}-fill"></i>
+                            {{ message | raw }}
+                        </div>
+                    {% endfor %}
+                {% endfor %}
+
+                <form method="post" action="{{ path('app_login') }}" novalidate>
+
+                    <div class="input-group-custom">
+                        <label class="label-custom" for="inputEmail">E-POSTA ADRESİ</label>
+                        <input
+                                type="email"
+                                id="inputEmail"
+                                name="email"
+                                value="{{ last_username }}"
+                                placeholder="ornek@mail.com"
+                                autocomplete="email"
+                                autofocus
+                                required
+                                class="field-custom {{ error ? 'is-invalid' : '' }}"
+                        >
+                    </div>
+
+                    <div class="input-group-custom">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <label class="label-custom" for="inputPassword" style="margin-bottom: 0;">ŞİFRE</label>
+                             <a href="{{ path('app_forgot_password') }}" class="forgot-link">Şifremi unuttum</a>
+                        </div>
+                        <input
+                                type="password"
+                                id="inputPassword"
+                                name="password"
+                                placeholder="••••••••"
+                                autocomplete="current-password"
+                                required
+                                class="field-custom {{ error ? 'is-invalid' : '' }}"
+                        >
+                    </div>
+
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+                    <div class="check-custom">
+                        <input type="checkbox" id="remember_me" name="_remember_me">
+                        <label for="remember_me">Beni hatırla</label>
+                    </div>
+
+                    <button type="submit" class="btn-custom">
+                        GİRİŞ YAP <i class="bi bi-arrow-right"></i>
+                    </button>
+
+                </form>
+
+                <div class="bottom-link">
+                    Hesabınız yok mu? <a href="{{ path('app_register') }}">Kayıt Olun</a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+{% endblock %}

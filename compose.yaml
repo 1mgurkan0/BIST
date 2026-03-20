@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  database:
+    image: mysql:8.0
+    container_name: bist_database
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      # Ekstra güvenlik: Sadece sunucu içinden erişime izin verir
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+    container_name: bist_redis
+    ports:
+      # Redis de sadece sunucu içinden erişilebilir
+      - "127.0.0.1:6379:6379"
+
+  pma:
+    image: phpmyadmin/phpmyadmin
+    container_name: bist_pma
+    environment:
+      PMA_HOST: database
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASSWORD}
+      UPLOAD_LIMIT: 100M
+    ports:
+      - "8080:80"
+    depends_on:
+      - database
+
+volumes:
+  db_data:

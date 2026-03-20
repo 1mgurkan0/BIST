@@ -1,0 +1,18 @@
+# translations/Login.tr.yaml
+
+# Genel kimlik doğrulama hataları
+Invalid credentials.: "E-posta adresi veya şifre hatalı."
+Bad credentials.: "E-posta adresi veya şifre hatalı."
+
+# Hesap durumu hataları
+Account is disabled.: "Hesabınız devre dışı bırakılmış. Lütfen destek ile iletişime geçin."
+Account is locked.: "Hesabınız kilitlendi. Lütfen daha sonra tekrar deneyin."
+Account is expired.: "Hesabınızın süresi dolmuş. Lütfen destek ile iletişime geçin."
+Credentials have expired.: "Oturum süreniz doldu. Lütfen tekrar giriş yapın."
+
+# CSRF
+Invalid CSRF token.: "Güvenlik doğrulaması başarısız. Lütfen sayfayı yenileyip tekrar deneyin."
+
+# Çok fazla deneme (rate limiter ile kullanılırsa)
+Too many failed login attempts, please try again in %minutes% minute.: >
+  Çok fazla başarısız giriş denemesi. Lütfen %minutes% dakika sonra tekrar deneyin.

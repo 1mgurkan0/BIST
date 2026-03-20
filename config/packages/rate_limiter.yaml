@@ -1,0 +1,33 @@
+# config/packages/rate_limiter.yaml
+framework:
+  rate_limiter:
+
+    # Kayıt: aynı IP'den 10 dakikada 5 deneme
+    registration:
+      policy: sliding_window
+      limit: 5
+      interval: '10 minutes'
+
+    # Kod doğrulama: kullanıcı başına 5 dakikada 10 deneme
+    verify_code:
+      policy: sliding_window
+      limit: 10
+      interval: '5 minutes'
+
+    # Yeniden kod gönderme: aynı IP'den 10 dakikada 3 talep
+    resend_verification:
+      policy: sliding_window
+      limit: 3
+      interval: '10 minutes'
+
+    # Şifre sıfırlama talebi: aynı IP'den 10 dakikada 3 talep
+    forgot_password:
+      policy: sliding_window
+      limit: 3
+      interval: '10 minutes'
+
+    # Şifre sıfırlama kod doğrulama: kullanıcı başına 5 dakikada 10 deneme
+    reset_password:
+      policy: sliding_window
+      limit: 10
+      interval: '5 minutes'

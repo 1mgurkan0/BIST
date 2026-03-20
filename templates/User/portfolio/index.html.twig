@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="tr" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="icon" style="border-radius: 20px" type="image/png" href="{{ asset('images/logo/bam-logo.ico') }}?v=1">
+    <title>BAM | Portföy Yönetimi</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121826;
+            color: #f3f4f6;
+        }
+        .card-custom {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 1rem;
+        }
+        .text-yellow-custom { color: #eab308; }
+        .bg-yellow-custom { background-color: #ca8a04; color: white; }
+        .btn-yellow-custom { background-color: #ca8a04; color: white; border: none; }
+        .btn-yellow-custom:hover { background-color: #a16207; color: white; }
+        .table-custom {
+            --bs-table-bg: transparent;
+            --bs-table-color: #f3f4f6;
+            --bs-table-border-color: #374151;
+        }
+        .table-custom th {
+            color: #9ca3af;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            border-bottom-width: 2px;
+        }
+        .table-custom tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        .tracking-widest { letter-spacing: 0.1em; }
+    </style>
+</head>
+<body class="py-5">
+
+<div class="container" style="max-width: 1000px;">
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label == 'error' ? 'danger' : (label == 'success' ? 'success' : 'warning') }} alert-dismissible fade show shadow-sm mt-3" role="alert">
+                <strong><i class="bi bi-info-circle-fill"></i> BAM Sistem Mesajı:</strong> {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endfor %}
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="bi bi-arrow-left"></i> Ana Panele Dön
+        </a>
+        <h2 class="m-0 font-weight-bold tracking-widest text-yellow-custom">
+            💼 PORTFÖYÜM
+        </h2>
+        <button class="btn btn-yellow-custom fw-bold rounded-pill px-4 shadow" data-bs-toggle="modal" data-bs-target="#addStockModal">
+            <i class="bi bi-plus-lg"></i> İşlem Ekle
+        </button>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card-custom p-4 shadow-sm h-100 border-start border-4 border-primary">
+                <small class="text-secondary fw-bold tracking-widest d-block mb-2">TOPLAM PORTFÖY DEĞERİ</small>
+                <h3 class="fw-bold font-monospace mb-0">₺ {{ totalValue|default(0)|number_format(2, ',', '.') }}</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-custom p-4 shadow-sm h-100 border-start border-4 border-success">
+                <small class="text-secondary fw-bold tracking-widest d-block mb-2">TOPLAM KAR / ZARAR</small>
+                {% set profitLossClass = totalProfitLoss|default(0) >= 0 ? 'text-success' : 'text-danger' %}
+                {% set profitLossIcon = totalProfitLoss|default(0) >= 0 ? 'bi-arrow-up-right' : 'bi-arrow-down-right' %}
+                <h3 class="fw-bold font-monospace {{ profitLossClass }} mb-1">
+                    {{ totalProfitLoss|default(0) >= 0 ? '+ ' : '- ' }}₺ {{ totalProfitLoss|default(0)|abs|number_format(2, ',', '.') }}
+                </h3>
+                <span class="badge {{ profitLossClass }} bg-opacity-25 {{ profitLossClass }} border {{ profitLossClass == 'text-success' ? 'border-success' : 'border-danger' }}">
+                    <i class="bi {{ profitLossIcon }}"></i> {{ profitLossPercent|default(0)|number_format(2, ',', '.') }}%
+                </span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-custom p-4 shadow-sm h-100 border-start border-4 border-warning">
+                <small class="text-secondary fw-bold tracking-widest d-block mb-2">GÜNLÜK DEĞİŞİM</small>
+                {% set dailyChangeClass = totalDailyChange|default(0) >= 0 ? 'text-success' : 'text-danger' %}
+                {% set dailyChangeIcon = totalDailyChange|default(0) >= 0 ? 'bi-arrow-up-right' : 'bi-arrow-down-right' %}
+                <h3 class="fw-bold font-monospace {{ dailyChangeClass }} mb-1">
+                    {{ totalDailyChange|default(0) >= 0 ? '+ ' : '- ' }}₺ {{ totalDailyChange|default(0)|abs|number_format(2, ',', '.') }}
+                </h3>
+                <span class="badge {{ dailyChangeClass }} bg-opacity-25 {{ dailyChangeClass }} border {{ dailyChangeClass == 'text-success' ? 'border-success' : 'border-danger' }}">
+                    <i class="bi {{ dailyChangeIcon }}"></i> {{ totalDailyChangePercent|default(0)|number_format(2, ',', '.') }}%
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-custom shadow-lg overflow-hidden border-0">
+        <div class="p-4 border-bottom border-secondary bg-dark bg-opacity-50 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold"><i class="bi bi-wallet2 text-yellow-custom me-2"></i> Varlık Dağılımı</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-custom align-middle mb-0">
+                <thead>
+                <tr>
+                    <th class="ps-4">Sembol</th>
+                    <th class="text-end">Lot</th>
+                    <th class="text-end">Ort. Maliyet</th>
+                    <th class="text-end">Güncel Fiyat</th>
+                    <th class="text-end">Toplam Değer</th>
+                    <th class="text-end">Günlük Değişim</th>
+                    <th class="text-end">K/Z Durumu</th>
+                    <th class="text-center">BAM AI</th>
+                    <th class="text-center pe-4">İşlem</th>
+
+                </tr>
+                </thead>
+                <tbody>
+                {% if items is empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-secondary py-5">
+                            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                            <span class="fs-5">Portföyünüzde henüz hisse bulunmuyor</span>
+                            <p class="text-secondary mt-2">Yukarıdaki formdan hisse ekleyebilirsiniz.</p>
+                        </td>
+                    </tr>
+                {% else %}
+                    {% for item in items %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-light fs-5">{{ item.symbol }}</div>
+                            </td>
+                            <td class="text-end font-monospace">{{ item.lot|number_format(0, ',', '.') }}</td>
+                            <td class="text-end font-monospace text-secondary">₺ {{ item.costPrice|number_format(2, ',', '.') }}</td>
+                            <td class="text-end font-monospace fw-bold">₺ {{ item.currentPrice|default(item.costPrice)|number_format(2, ',', '.') }}</td>
+
+                            {% set currentTotal = item.lot * (item.currentPrice|default(item.costPrice)) %}
+                            <td class="text-end font-monospace fw-bold text-light">₺ {{ currentTotal|number_format(2, ',', '.') }}</td>
+
+                            {% set previousTotal = item.lot * item.costPrice %}
+                            {% set dailyChange = (item.currentPrice|default(item.costPrice)) - item.costPrice %}
+                            {% set dailyChangePercent = item.costPrice > 0 ? (dailyChange / item.costPrice) * 100 : 0 %}
+                            <td class="text-end">
+                                <div class="font-monospace fw-bold {{ dailyChange >= 0 ? 'text-success' : 'text-danger' }}">
+                                    {{ dailyChange >= 0 ? '+' : '-' }}₺ {{ dailyChange|abs|number_format(2, ',', '.') }}
+                                </div>
+                                <small class="{{ dailyChange >= 0 ? 'text-success' : 'text-danger' }}">
+                                    {{ dailyChangePercent|number_format(2, ',', '.') }}%
+                                </small>
+                            </td>
+
+                            {% set profitLoss = currentTotal - previousTotal %}
+                            {% set profitLossPercent = previousTotal > 0 ? (profitLoss / previousTotal) * 100 : 0 %}
+                            <td class="text-end">
+                                <div class="font-monospace fw-bold {{ profitLoss >= 0 ? 'text-success' : 'text-danger' }}">
+                                    {{ profitLoss >= 0 ? '+ ' : '- ' }}₺ {{ profitLoss|abs|number_format(2, ',', '.') }}
+                                </div>
+                                <small class="{{ profitLoss >= 0 ? 'text-success' : 'text-danger' }}">
+                                    {{ profitLossPercent|number_format(2, ',', '.') }}%
+                                </small>
+                            </td>
+
+                            <td class="text-center">
+                                {% if item.sentimentScore is null %}
+                                    <a href="/portfolio/analyze/{{ item.id }}" class="btn btn-sm btn-outline-info rounded-pill fw-bold shadow-sm">
+                                        <i class="bi bi-robot text-info"></i> Analiz Ettir
+                                    </a>
+                                {% else %}
+                                    {% set sentiment = item.sentimentScore %}
+
+                                    {% if sentiment >= 70 %}
+                                        {% set badgeClass, textClass = 'bg-success', 'text-success' %}
+                                        {% set label = 'Pozitif' %}
+                                    {% elseif sentiment <= -70 %}
+                                        {% set badgeClass, textClass = 'bg-danger', 'text-danger' %}
+                                        {% set label = 'Negatif' %}
+                                    {% elseif sentiment >= 30 %}
+                                        {% set badgeClass, textClass = 'bg-info', 'text-info' %}
+                                        {% set label = 'Hafif Pozitif' %}
+                                    {% elseif sentiment <= -30 %}
+                                        {% set badgeClass, textClass = 'bg-warning', 'text-warning' %}
+                                        {% set label = 'Hafif Negatif' %}
+                                    {% else %}
+                                        {% set badgeClass, textClass = 'bg-secondary', 'text-secondary' %}
+                                        {% set label = 'Nötr' %}
+                                    {% endif %}
+
+
+                                    <span class="badge {{ badgeClass }} bg-opacity-25 {{ textClass }} border border-{{ badgeClass }} p-2 cursor-pointer ai-report-badge"
+                                          data-bs-toggle="popover"
+                                          data-bs-trigger="hover focus"
+                                          data-bs-html="true"
+                                          data-bs-placement="top"
+                                          title="<i class='bi bi-cpu-fill'></i> Gemini Analiz Raporu"
+                                          data-bs-content="<div class='ai-report-content'>{{ item.aiSummary|default('Analiz henüz hazır değil.') }}</div>">
+                                         <i class="bi bi-robot"></i> {{ label }} ({{ sentiment }})
+                                         <i class="bi bi-eye-fill ms-1"></i>
+                                    </span>
+
+                                    <a href="/portfolio/analyze/{{ item.id }}" class="btn btn-sm btn-link text-secondary p-0 ms-2" title="Yeniden Analiz Et">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </a>
+                                {% endif %}
+                            </td>
+                            <td class="text-center pe-4">
+                                <button type="button" class="btn btn-sm btn-outline-warning border-0"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editStockModal"
+                                        data-id="{{ item.id }}"
+                                        data-symbol="{{ item.symbol }}"
+                                        data-lot="{{ item.lot }}"
+                                        data-cost="{{ item.costPrice }}">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <a href="{{ path('portfolio_delete', {'id': item.id}) }}"
+                                   class="btn btn-sm btn-outline-danger border-0"
+                                   onclick="return confirm('Bu hisseyi silmek istediğinize emin misiniz?')">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+
+                            </td>
+
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+        <div class="modal fade" id="editStockModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content card-custom">
+                    <div class="modal-header border-secondary">
+                        <h5 class="modal-title fw-bold text-yellow-custom">Hisse Güncelle: <span id="editSymbolDisplay" class="text-white"></span></h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editStockForm" method="POST" action="">
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label text-secondary small fw-bold tracking-widest">YENİ LOT MİKTARI</label>
+                                    <input type="number" step="any" name="lot" id="editLotInput" class="form-control bg-dark border-secondary text-white font-monospace" required>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label text-secondary small fw-bold tracking-widest">YENİ MALİYET (₺)</label>
+                                    <input type="number" step="any" name="cost" id="editCostInput" class="form-control bg-dark border-secondary text-white font-monospace" required>
+                                </div>
+                            </div>
+                            <div class="modal-footer border-secondary mt-3 px-0 pb-0">
+                                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                                <button type="submit" class="btn btn-warning rounded-pill px-4 fw-bold shadow">Değişiklikleri Kaydet</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addStockModal" tabindex="-1" aria-labelledby="addStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-custom">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold text-yellow-custom">Yeni Hisse İşlemi Ekle</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ path('app_portfolio_add') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-bold tracking-widest">HİSSE KODU</label>
+                        <input type="text" name="symbol" class="form-control bg-dark border-secondary text-white text-uppercase" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label text-secondary small fw-bold tracking-widest">LOT MİKTARI</label>
+                            <input type="number" name="lot" class="form-control bg-dark border-secondary text-white font-monospace" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label text-secondary small fw-bold tracking-widest">ORTALAMA MALİYET (₺)</label>
+                            <input type="number" step="any" name="cost" class="form-control bg-dark border-secondary text-white font-monospace" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-secondary mt-3">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                        <button type="submit" class="btn btn-yellow-custom rounded-pill px-4 fw-bold shadow">Kaydet</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var editModal = document.getElementById('editStockModal');
+        if (editModal) {
+            editModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+
+                var id = button.getAttribute('data-id');
+                var symbol = button.getAttribute('data-symbol');
+                var lot = button.getAttribute('data-lot');
+                var cost = button.getAttribute('data-cost');
+
+                document.getElementById('editSymbolDisplay').textContent = symbol;
+                document.getElementById('editLotInput').value = lot;
+                document.getElementById('editCostInput').value = cost;
+
+                document.getElementById('editStockForm').action = '/portfolio/edit/' + id;
+            });
+        }
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+        var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl)
+        })
+    });
+</script>
+</body>
+</html>
