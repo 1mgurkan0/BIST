@@ -11,8 +11,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class YahooFinanceService
 {
     private const BASE_URL      = 'https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=1d';
-    private const SYMBOL_TTL    = 90;
-    private const BLOCK_DURATION = 300;
+    private const SYMBOL_TTL    = 60;
+    private const BLOCK_DURATION = 600;
     private const REQUEST_DELAY = 2_200_000;
     private const MAX_RETRY     = 3;
 
@@ -52,13 +52,11 @@ class YahooFinanceService
     {
         $symbol = $this->normalizeSymbol($symbol);
 
-        // Cache'de var mı?
         $cached = $this->getFromCache($symbol);
         if ($cached !== null) {
             return $cached;
         }
 
-        // Bloke mi?
         if ($this->isBlocked($symbol)) {
             $this->logger->notice('Sembol bloke, atlanıyor.', ['symbol' => $symbol]);
             return null;

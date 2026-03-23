@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Entity\Stock;
@@ -14,6 +16,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Contracts\Cache\CacheInterface;
 
 class MarketController extends AbstractController
 {
@@ -73,10 +77,32 @@ class MarketController extends AbstractController
                 ->getResult();
         }
 
+
+
+
         return $this->render('base.html.twig', [
             'stock' => $stock,
             'symbol' => $symbol,
             'newsList' => $newsList,
         ]);
+    }
+
+    #[Route('/api/bist30/live', name: 'api_bist30_live', methods: ['GET'])]
+    public function liveBist30(CacheInterface $cache): JsonResponse
+    {
+        // Command'da belirlediğin Cache anahtarını kullanıyoruz
+        $cacheKey = 'bist30.live.data';
+
+        // Cache'den veriyi oku. Eğer cache boşsa (örn: cron henüz çalışmadıysa veya redis silindiyse)
+        // Yahoo'ya gitmek yerine boş bir yapı dönerek frontend'in patlamasını önlüyoruz (Fallback).
+        $data = $cache->get($cacheKey, function () {
+            return [
+                'fetchedAt' => null,
+                'items'     => [],
+                'status'    => 'waiting_for_command'
+            ];
+        });
+
+        return $this->json($data);
     }
 }

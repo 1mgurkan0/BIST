@@ -297,4 +297,62 @@ EOT;
 
         return $this->redirectToRoute('app_portfolio');
     }
+
+    #[Route('/api/portfolio/live', name: 'api_portfolio_live', methods: ['GET'])]
+    public function liveData(PortfolioRepository $repo): \Symfony\Component\HttpFoundation\JsonResponse
+    {
+        $items         = $repo->findAll();
+        $symbols       = array_map(fn($item) => $item->getSymbol(), $items);
+        $marketDataMap = $this->yahooFinance->fetchBatch($symbols);
+
+        $result         = [];
+        $totalValue     = 0;
+        $totalCost      = 0;
+        $totalDailyChg  = 0;
+        $totalPrevValue = 0;
+
+        foreach ($items as $item) {
+            $md = $marketDataMap[strtoupper($item->getSymbol())] ?? null;
+
+            $currentPrice  = $md ? $md->price         : $item->getCostPrice();
+            $previousClose = $md ? $md->previousClose  : $item->getCostPrice();
+
+            $totalVal  = $item->getLot() * $currentPrice;
+            $costTotal = $item->getLot() * $item->getCostPrice();
+            $profitLoss = $totalVal - $costTotal;
+            $profitLossPct = $costTotal > 0 ? ($profitLoss / $costTotal) * 100 : 0;
+            $dailyChg      = $currentPrice - $previousClose;
+            $dailyChgPct   = $previousClose > 0 ? ($dailyChg / $previousClose) * 100 : 0;
+
+            $totalValue    += $totalVal;
+            $totalCost     += $costTotal;
+            $totalDailyChg += $item->getLot() * ($currentPrice - $previousClose);
+            $totalPrevValue += $item->getLot() * $previousClose;
+
+            $result[] = [
+                'id'               => $item->getId(),
+                'symbol'           => $item->getSymbol(),
+                'currentPrice'     => round($currentPrice, 2),
+                'totalValue'       => round($totalVal, 2),
+                'profitLoss'       => round($profitLoss, 2),
+                'profitLossPct'    => round($profitLossPct, 2),
+                'dailyChange'      => round($dailyChg, 2),
+                'dailyChangePct'   => round($dailyChgPct, 2),
+            ];
+        }
+
+        $totalProfitLoss    = $totalValue - $totalCost;
+        $profitLossPct      = $totalCost > 0 ? ($totalProfitLoss / $totalCost) * 100 : 0;
+        $dailyChangePct     = $totalPrevValue > 0 ? ($totalDailyChg / $totalPrevValue) * 100 : 0;
+
+        return $this->json([
+            'items'          => $result,
+            'totalValue'     => round($totalValue, 2),
+            'totalProfitLoss' => round($totalProfitLoss, 2),
+            'profitLossPct'  => round($profitLossPct, 2),
+            'totalDailyChg'  => round($totalDailyChg, 2),
+            'dailyChangePct' => round($dailyChangePct, 2),
+        ]);
+    }
+
 }
