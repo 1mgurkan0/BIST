@@ -37,10 +37,13 @@
         }
         .update-timer { font-size: 0.75rem; color: #6b7280; }
     </style>
+    <link rel="stylesheet" href="{{ asset('css/bam-personal.css') }}?v=1">
 </head>
-<body class="py-5">
+<body class="bam-page">
 
-<div class="container" style="max-width: 1100px;">
+{% include 'partials/_dashboard_header.html.twig' %}
+
+<div class="container bam-shell py-4 py-lg-5">
 
     {% for label, messages in app.flashes %}
         {% for message in messages %}
@@ -51,26 +54,37 @@
         {% endfor %}
     {% endfor %}
 
-    <div class="d-flex justify-content-between align-items-center mb-5">
-        <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-            <i class="bi bi-arrow-left"></i> Ana Panele Dön
-        </a>
-        <h2 class="m-0 font-weight-bold tracking-widest text-yellow-custom">💼 PORTFÖYÜM</h2>
-        <button class="btn btn-yellow-custom fw-bold rounded-pill px-4 shadow" data-bs-toggle="modal" data-bs-target="#addStockModal">
-            <i class="bi bi-plus-lg"></i> İşlem Ekle
-        </button>
+    <div class="bam-card p-4 mb-4">
+        <div class="bam-toolbar">
+            <div>
+                <div class="bam-eyebrow">Kişisel portföy</div>
+                <h2 class="m-0 fw-bold tracking-widest text-yellow-custom">PORTFÖYÜM</h2>
+                <div class="bam-muted small mt-1"><span class="bam-live-dot"></span>canlı değerleme · <span id="countdown">10</span>s</div>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-yellow-custom fw-bold px-4 shadow" data-bs-toggle="modal" data-bs-target="#addStockModal">
+                    <i class="bi bi-plus-lg"></i> İşlem Ekle
+                </button>
+            </div>
+        </div>
     </div>
 
     <div class="row g-4 mb-4">
         <div class="col-md-4">
-            <div class="card-custom p-4 shadow-sm h-100 border-start border-4 border-primary">
-                <small class="text-secondary fw-bold tracking-widest d-block mb-2">TOPLAM PORTFÖY DEĞERİ</small>
+            <div class="card-custom bam-stat p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <small class="text-secondary fw-bold tracking-widest d-block">TOPLAM PORTFÖY DEĞERİ</small>
+                    <span class="bam-stat-icon"><i class="bi bi-wallet2"></i></span>
+                </div>
                 <h3 class="fw-bold font-monospace mb-0" id="stat-total-value">₺ {{ totalValue|default(0)|number_format(2, ',', '.') }}</h3>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card-custom p-4 shadow-sm h-100 border-start border-4 border-success">
-                <small class="text-secondary fw-bold tracking-widest d-block mb-2">TOPLAM KAR / ZARAR</small>
+            <div class="card-custom bam-stat p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <small class="text-secondary fw-bold tracking-widest d-block">TOPLAM KAR / ZARAR</small>
+                    <span class="bam-stat-icon"><i class="bi bi-graph-up-arrow"></i></span>
+                </div>
                 {% set pc = totalProfitLoss|default(0) >= 0 ? 'text-success' : 'text-danger' %}
                 {% set pi = totalProfitLoss|default(0) >= 0 ? 'bi-arrow-up-right' : 'bi-arrow-down-right' %}
                 <h3 class="fw-bold font-monospace {{ pc }} mb-1" id="stat-profit-loss">
@@ -82,8 +96,11 @@
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card-custom p-4 shadow-sm h-100 border-start border-4 border-warning">
-                <small class="text-secondary fw-bold tracking-widest d-block mb-2">GÜNLÜK DEĞİŞİM</small>
+            <div class="card-custom bam-stat p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <small class="text-secondary fw-bold tracking-widest d-block">GÜNLÜK DEĞİŞİM</small>
+                    <span class="bam-stat-icon"><i class="bi bi-activity"></i></span>
+                </div>
                 {% set dc = totalDailyChange|default(0) >= 0 ? 'text-success' : 'text-danger' %}
                 {% set di = totalDailyChange|default(0) >= 0 ? 'bi-arrow-up-right' : 'bi-arrow-down-right' %}
                 <h3 class="fw-bold font-monospace {{ dc }} mb-1" id="stat-daily-change">
@@ -102,7 +119,7 @@
                 <div class="card-custom p-4 shadow-sm h-100">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="mb-0 fw-bold text-yellow-custom"><i class="bi bi-pie-chart-fill me-2"></i>Portföy Dağılımı</h6>
-                        <span class="update-timer"><span class="live-dot"></span>canlı · <span id="countdown">10</span>s</span>
+                        <span class="update-timer"><span class="bam-live-dot"></span>dağılım</span>
                     </div>
                     <div class="chart-container">
                         <canvas id="doughnutChart"></canvas>

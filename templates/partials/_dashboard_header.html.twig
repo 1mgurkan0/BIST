@@ -1,0 +1,54 @@
+{% set currentRoute = app.request.attributes.get('_route') %}
+
+<nav class="navbar navbar-expand-lg navbar-custom bam-navbar py-2 shadow-sm sticky-top">
+    <div class="container bam-header-container">
+        <a class="bam-brand" href="{{ path('app-home') }}">
+            <span class="bam-brand-logo">
+                <img class="bam-brand-mark" src="{{ asset('images/logo/bam-images.png') }}" alt="BAM Logo">
+            </span>
+            <span>
+                <span class="bam-brand-title">BAM</span>
+                <span class="bam-brand-subtitle">Kişisel BIST Terminali</span>
+            </span>
+        </a>
+
+        <button class="navbar-toggler bam-nav-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#userNavbar" aria-label="Menüyü aç">
+            <i class="bi bi-list fs-4"></i>
+        </button>
+
+        <div class="collapse navbar-collapse" id="userNavbar">
+            {% if app.user %}
+                <div class="navbar-nav mx-lg-auto bam-nav-group">
+                    <a href="{{ path('app-home') }}" class="bam-nav-pill {{ currentRoute in ['app-home', 'market'] ? 'active' : '' }}">
+                        <i class="bi bi-grid-1x2"></i> Panel
+                    </a>
+                    <a href="{{ path('app_watchlist') }}" class="bam-nav-pill {{ currentRoute starts with 'app_watchlist' or currentRoute starts with 'api_watchlist' ? 'active' : '' }}">
+                        <i class="bi bi-radar"></i> Takip
+                    </a>
+                    <a href="{{ path('app_portfolio') }}" class="bam-nav-pill {{ currentRoute starts with 'app_portfolio' or currentRoute starts with 'portfolio_' or currentRoute starts with 'api_portfolio' ? 'active' : '' }}">
+                        <i class="bi bi-briefcase"></i> Portföy
+                    </a>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 ms-lg-auto">
+                    <div class="bam-user-chip">
+                        <span class="bam-user-avatar"><i class="bi bi-person"></i></span>
+                        <span class="min-w-0">
+                            <span class="bam-user-label d-block">Aktif oturum</span>
+                            <span class="bam-user-email d-block">{{ app.user.email }}</span>
+                        </span>
+                    </div>
+                    <a href="{{ path('app_logout') }}" class="bam-icon-btn" title="Çıkış yap" aria-label="Çıkış yap">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </a>
+                </div>
+            {% else %}
+                <div class="d-flex align-items-center gap-2 ms-lg-auto mt-3 mt-lg-0">
+                    <a href="{{ path('app_login') }}" class="btn btn-yellow-custom btn-sm px-4 fw-bold tracking-widest">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> GİRİŞ
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</nav>

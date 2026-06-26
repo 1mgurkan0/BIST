@@ -43,10 +43,13 @@
             background-color: #ca8a04 !important;
         }
     </style>
+    <link rel="stylesheet" href="{{ asset('css/bam-personal.css') }}?v=1">
 </head>
-<body class="py-5">
+<body class="bam-page">
 
-<div class="container" style="max-width: 800px;">
+{% include 'partials/_dashboard_header.html.twig' %}
+
+<div class="container bam-shell py-4 py-lg-5" style="max-width: 800px;">
 
     <h2 class="text-center mb-5 font-weight-bold tracking-widest text-yellow-custom">
         📊 HİSSE ANALİZ MERKEZİ

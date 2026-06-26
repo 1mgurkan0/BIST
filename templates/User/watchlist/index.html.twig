@@ -29,9 +29,13 @@
             50% { opacity: .4; transform: scale(1.3); }
         }
     </style>
+    <link rel="stylesheet" href="{{ asset('css/bam-personal.css') }}?v=1">
 </head>
-<body class="py-5">
-<div class="container" style="max-width: 1100px;">
+<body class="bam-page">
+
+{% include 'partials/_dashboard_header.html.twig' %}
+
+<div class="container bam-shell py-4 py-lg-5">
     {% for label, messages in app.flashes %}
         {% for message in messages %}
             <div class="alert alert-{{ label == 'error' ? 'danger' : (label == 'success' ? 'success' : 'warning') }} alert-dismissible fade show shadow-sm mt-3" role="alert">
@@ -44,35 +48,41 @@
     {% set activeCount = items|filter(item => item.active)|length %}
     {% set passiveCount = items|length - activeCount %}
 
-    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-5">
-        <a href="{{ path('app-home') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 align-self-start">
-            <i class="bi bi-arrow-left"></i> Ana Panele Dön
-        </a>
-        <div class="text-center">
-            <h2 class="m-0 fw-bold tracking-widest text-yellow-custom">TAKİP LİSTESİ</h2>
-            <small class="text-secondary"><span class="live-dot"></span>aktif semboller canlı izleniyor · <span id="last-update">-</span></small>
+    <div class="bam-card p-4 mb-4">
+        <div class="bam-toolbar">
+            <div>
+                <div class="bam-eyebrow">Radar ekranı</div>
+                <h2 class="m-0 fw-bold tracking-widest text-yellow-custom">TAKİP LİSTESİ</h2>
+                <small class="text-secondary"><span class="bam-live-dot"></span>aktif semboller canlı izleniyor · <span id="last-update">-</span></small>
+            </div>
         </div>
-        <a href="{{ path('app_portfolio') }}" class="btn btn-outline-warning btn-sm rounded-pill px-3 align-self-start align-self-lg-auto">
-            <i class="bi bi-briefcase"></i> Portföy
-        </a>
     </div>
 
     <div class="row g-4 mb-4">
         <div class="col-md-4">
-            <div class="card-custom p-4 h-100 border-start border-4 border-success">
-                <small class="text-secondary fw-bold tracking-widest d-block mb-2">AKTİF TAKİP</small>
+            <div class="card-custom bam-stat p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <small class="text-secondary fw-bold tracking-widest d-block">AKTİF TAKİP</small>
+                    <span class="bam-stat-icon"><i class="bi bi-broadcast"></i></span>
+                </div>
                 <h3 class="fw-bold mb-0 text-success">{{ activeCount }}</h3>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card-custom p-4 h-100 border-start border-4 border-secondary">
-                <small class="text-secondary fw-bold tracking-widest d-block mb-2">PASİF</small>
+            <div class="card-custom bam-stat p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <small class="text-secondary fw-bold tracking-widest d-block">PASİF</small>
+                    <span class="bam-stat-icon"><i class="bi bi-pause-circle"></i></span>
+                </div>
                 <h3 class="fw-bold mb-0 text-secondary">{{ passiveCount }}</h3>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card-custom p-4 h-100 border-start border-4 border-warning">
-                <small class="text-secondary fw-bold tracking-widest d-block mb-2">TOPLAM SEMBOL</small>
+            <div class="card-custom bam-stat p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <small class="text-secondary fw-bold tracking-widest d-block">TOPLAM SEMBOL</small>
+                    <span class="bam-stat-icon"><i class="bi bi-collection"></i></span>
+                </div>
                 <h3 class="fw-bold mb-0 text-yellow-custom">{{ items|length }}</h3>
             </div>
         </div>
@@ -83,11 +93,11 @@
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('watchlist_add') }}">
             <div class="col-md-3">
                 <label class="form-label text-secondary small fw-bold tracking-widest">HİSSE KODU</label>
-                <input type="text" name="symbol" class="form-control bg-dark border-secondary text-white text-uppercase" placeholder="ASELS" required>
+                <input type="text" name="symbol" class="form-control bam-form-control text-uppercase" placeholder="ASELS" required>
             </div>
             <div class="col-md-7">
                 <label class="form-label text-secondary small fw-bold tracking-widest">NOT</label>
-                <input type="text" name="note" class="form-control bg-dark border-secondary text-white" placeholder="Takip sebebi, seviye, haber beklentisi...">
+                <input type="text" name="note" class="form-control bam-form-control" placeholder="Takip sebebi, seviye, haber beklentisi...">
             </div>
             <div class="col-md-2">
                 <button type="submit" class="btn btn-yellow-custom w-100 fw-bold">
