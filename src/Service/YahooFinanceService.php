@@ -10,11 +10,12 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class YahooFinanceService
 {
-    private const BASE_URL      = 'https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=1d';
-    private const SYMBOL_TTL    = 60;
+    private const BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=1d';
+    private const SYMBOL_TTL = 60;
+    private const LAST_SUCCESS_TTL = 604800;
     private const BLOCK_DURATION = 600;
     private const REQUEST_DELAY = 2_200_000;
-    private const MAX_RETRY     = 3;
+    private const MAX_RETRY = 3;
 
     private const USER_AGENTS = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -40,134 +41,192 @@ class YahooFinanceService
 
     public function __construct(
         private readonly HttpClientInterface $client,
-        private readonly CacheInterface      $cache,
-        private readonly LockFactory         $lockFactory,
-        private readonly LoggerInterface     $logger,
+        private readonly CacheInterface $cache,
+        private readonly LockFactory $lockFactory,
+        private readonly LoggerInterface $logger,
     ) {}
 
-    /**
-     * Tek sembol çeker. Cache'de varsa HTTP isteği atmaz.
-     */
     public function fetchOne(string $symbol): ?MarketDataDto
+    {
+        $result = $this->fetchOneWithStatus($symbol);
+
+        return $result['data'] instanceof MarketDataDto ? $result['data'] : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function fetchOneWithStatus(string $symbol): array
     {
         $symbol = $this->normalizeSymbol($symbol);
 
         $cached = $this->getFromCache($symbol);
         if ($cached !== null) {
-            return $cached;
+            return $this->buildStatus($symbol, $cached, 'cache', 'ok');
         }
 
         if ($this->isBlocked($symbol)) {
-            $this->logger->notice('Sembol bloke, atlanıyor.', ['symbol' => $symbol]);
-            return null;
+            $this->logger->notice('Symbol is in Yahoo 429 block, using last successful quote.', ['symbol' => $symbol]);
+
+            return $this->buildStatusFromLast(
+                $symbol,
+                'rate_limited',
+                429,
+                'Yahoo 429 limiti aktif. Son basarili veri gosteriliyor.'
+            );
         }
 
-        return $this->fetchFromApi($symbol);
+        return $this->fetchFromApiWithStatus($symbol);
     }
 
     /**
-     * Sembol listesini sırayla çeker.
-     * Cache'dekiler anında döner, eksikler API'den teker teker alınır.
-     *
-     * @param  string[]                     $symbols
+     * @param string[] $symbols
      * @return array<string, MarketDataDto>
      */
     public function fetchBatch(array $symbols): array
+    {
+        $statusMap = $this->fetchBatchWithStatus($symbols);
+        $results = [];
+
+        foreach ($statusMap as $symbol => $result) {
+            if (($result['data'] ?? null) instanceof MarketDataDto) {
+                $results[$symbol] = $result['data'];
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * @param string[] $symbols
+     * @return array<string, array<string, mixed>>
+     */
+    public function fetchBatchWithStatus(array $symbols): array
     {
         if (empty($symbols)) {
             return [];
         }
 
-        $results  = [];
-        $missing  = [];
+        $results = [];
+        $missing = [];
+        $seen = [];
 
         foreach ($symbols as $raw) {
             $symbol = $this->normalizeSymbol($raw);
-            $cached = $this->getFromCache($symbol);
 
-            if ($cached !== null) {
-                $results[$cached->symbol] = $cached;
-                $this->logger->debug('Cache hit.', ['symbol' => $symbol]);
-            } else {
-                $missing[] = $symbol;
+            if (isset($seen[$symbol])) {
+                continue;
             }
+            $seen[$symbol] = true;
+
+            $cached = $this->getFromCache($symbol);
+            if ($cached !== null) {
+                $results[$cached->symbol] = $this->buildStatus($symbol, $cached, 'cache', 'ok');
+                $this->logger->debug('Yahoo cache hit.', ['symbol' => $symbol]);
+                continue;
+            }
+
+            $missing[] = $symbol;
         }
 
         if (empty($missing)) {
-            $this->logger->info('Tüm semboller cache\'den karşılandı.', ['count' => count($results)]);
+            $this->logger->info('All symbols served from Yahoo cache.', ['count' => count($results)]);
             return $results;
         }
 
-        $this->logger->info('API\'den çekilecek semboller.', [
-            'toplam'    => count($missing),
-            'semboller' => implode(', ', $missing),
+        $this->logger->info('Symbols will be fetched from Yahoo.', [
+            'count' => count($missing),
+            'symbols' => implode(', ', $missing),
         ]);
 
         foreach ($missing as $index => $symbol) {
             if ($this->isBlocked($symbol)) {
-                $this->logger->notice('Sembol bloke, atlanıyor.', ['symbol' => $symbol]);
-                continue;
+                $this->logger->notice('Symbol is in Yahoo 429 block, using last successful quote.', ['symbol' => $symbol]);
+                $status = $this->buildStatusFromLast(
+                    $symbol,
+                    'rate_limited',
+                    429,
+                    'Yahoo 429 limiti aktif. Son basarili veri gosteriliyor.'
+                );
+            } else {
+                $status = $this->fetchFromApiWithStatus($symbol);
             }
 
-            $dto = $this->fetchFromApi($symbol);
-
-            if ($dto !== null) {
-                $results[$dto->symbol] = $dto;
-            }
+            $results[$status['symbol']] = $status;
 
             if ($index < count($missing) - 1) {
-                $jitter = random_int(0, 800_000); // 0–0.8 sn ek jitter
+                $jitter = random_int(0, 800_000);
                 usleep(self::REQUEST_DELAY + $jitter);
             }
         }
 
-        $this->logger->info('fetchBatch tamamlandı.', [
-            'istenen'  => count($symbols),
-            'dönen'    => count($results),
-            'başarısız' => count($missing) - (count($results) - count($symbols) + count($missing)),
+        $this->logger->info('Yahoo fetchBatch completed.', [
+            'requested' => count($seen),
+            'returned' => count($results),
+            'without_data' => count(array_filter(
+                $results,
+                fn(array $item): bool => ($item['data'] ?? null) === null
+            )),
         ]);
 
         return $results;
     }
 
-    private function fetchFromApi(string $normalizedSymbol): ?MarketDataDto
+    /**
+     * @return array<string, mixed>
+     */
+    private function fetchFromApiWithStatus(string $normalizedSymbol): array
     {
         $lock = $this->lockFactory->createLock('yahoo_fetch_' . $normalizedSymbol, 15.0, false);
 
         if (!$lock->acquire()) {
             usleep(500_000);
-            return $this->getFromCache($normalizedSymbol);
+            $cached = $this->getFromCache($normalizedSymbol);
+
+            if ($cached !== null) {
+                return $this->buildStatus($normalizedSymbol, $cached, 'cache', 'ok');
+            }
+
+            return $this->buildStatusFromLast(
+                $normalizedSymbol,
+                'locked',
+                null,
+                'Ayni sembol icin baska veri cekimi suruyor. Son basarili veri gosteriliyor.'
+            );
         }
 
         try {
-            return $this->doRequest($normalizedSymbol);
+            return $this->doRequestWithStatus($normalizedSymbol);
         } finally {
             $lock->release();
         }
     }
 
-    private function doRequest(string $symbol): ?MarketDataDto
+    /**
+     * @return array<string, mixed>
+     */
+    private function doRequestWithStatus(string $symbol): array
     {
         $url = sprintf(self::BASE_URL, $symbol);
 
         for ($attempt = 0; $attempt < self::MAX_RETRY; $attempt++) {
-            $ua      = self::USER_AGENTS[array_rand(self::USER_AGENTS)];
-            $lang    = self::ACCEPT_LANGUAGES[array_rand(self::ACCEPT_LANGUAGES)];
+            $ua = self::USER_AGENTS[array_rand(self::USER_AGENTS)];
+            $lang = self::ACCEPT_LANGUAGES[array_rand(self::ACCEPT_LANGUAGES)];
             $referer = self::REFERERS[array_rand(self::REFERERS)];
 
             try {
-                $response   = $this->client->request('GET', $url, [
+                $response = $this->client->request('GET', $url, [
                     'headers' => [
-                        'User-Agent'      => $ua,
-                        'Accept'          => 'application/json, text/plain, */*',
+                        'User-Agent' => $ua,
+                        'Accept' => 'application/json, text/plain, */*',
                         'Accept-Language' => $lang,
                         'Accept-Encoding' => 'gzip, deflate, br',
-                        'Referer'         => $referer,
-                        'Origin'          => 'https://finance.yahoo.com',
-                        'Connection'      => 'keep-alive',
-                        'Sec-Fetch-Dest'  => 'empty',
-                        'Sec-Fetch-Mode'  => 'cors',
-                        'Sec-Fetch-Site'  => 'same-site',
+                        'Referer' => $referer,
+                        'Origin' => 'https://finance.yahoo.com',
+                        'Connection' => 'keep-alive',
+                        'Sec-Fetch-Dest' => 'empty',
+                        'Sec-Fetch-Mode' => 'cors',
+                        'Sec-Fetch-Site' => 'same-site',
                     ],
                     'timeout' => 10,
                 ]);
@@ -175,68 +234,107 @@ class YahooFinanceService
                 $status = $response->getStatusCode();
 
                 if ($status === 429) {
-                    $wait = $this->backoffSeconds($attempt);
-                    $this->logger->warning('429 alındı, backoff.', [
-                        'symbol'     => $symbol,
-                        'deneme'     => $attempt + 1,
-                        'bekleme_sn' => $wait,
+                    $this->logger->warning('Yahoo returned 429, using last successful quote.', [
+                        'symbol' => $symbol,
+                        'attempt' => $attempt + 1,
                     ]);
                     $this->block($symbol);
-                    sleep($wait);
-                    continue;
+
+                    return $this->buildStatusFromLast(
+                        $symbol,
+                        'rate_limited',
+                        429,
+                        'Yahoo 429 verdi. Son basarili veri gosteriliyor.'
+                    );
                 }
 
                 if ($status !== 200) {
-                    $this->logger->error('Beklenmeyen HTTP kodu.', [
+                    $this->logger->error('Unexpected Yahoo HTTP status.', [
                         'symbol' => $symbol,
                         'status' => $status,
+                        'attempt' => $attempt + 1,
                     ]);
-                    return null;
+
+                    if ($status >= 500 && $attempt < self::MAX_RETRY - 1) {
+                        sleep($this->backoffSeconds($attempt));
+                        continue;
+                    }
+
+                    return $this->buildStatusFromLast(
+                        $symbol,
+                        'http_error',
+                        $status,
+                        'Yahoo beklenmeyen HTTP kodu dondu. Son basarili veri gosteriliyor.'
+                    );
                 }
 
                 $data = $response->toArray();
 
                 if (empty($data['chart']['result'][0])) {
-                    $this->logger->notice('Sembol için veri yok.', ['symbol' => $symbol]);
-                    return null;
+                    $this->logger->notice('Yahoo returned an empty result.', ['symbol' => $symbol]);
+
+                    return $this->buildStatusFromLast(
+                        $symbol,
+                        'empty_response',
+                        null,
+                        'Yahoo bos cevap dondu. Son basarili veri gosteriliyor.'
+                    );
                 }
 
                 $result = $data['chart']['result'][0];
-                $meta   = $result['meta'];
-                $quote  = $result['indicators']['quote'][0];
-                $last   = count($quote['close']) - 1;
+                $meta = $result['meta'] ?? [];
+                $quote = $result['indicators']['quote'][0] ?? [];
+                $closeValues = $quote['close'] ?? [];
+                $last = max(count($closeValues) - 1, 0);
 
                 $dto = new MarketDataDto(
-                    symbol:        $this->bareSymbol($symbol),
-                    price:         (float) ($meta['regularMarketPrice']   ?? 0.0),
-                    open:          (float) ($quote['open'][$last]         ?? 0.0),
-                    high:          (float) ($quote['high'][$last]         ?? 0.0),
-                    low:           (float) ($quote['low'][$last]          ?? 0.0),
-                    previousClose: (float) ($meta['chartPreviousClose']   ?? 0.0),
-                    volume:        (int)   ($quote['volume'][$last]       ?? 0),
-                    fetchedAt:     new \DateTimeImmutable(),
+                    symbol: $this->bareSymbol($symbol),
+                    price: (float) ($meta['regularMarketPrice'] ?? ($closeValues[$last] ?? 0.0)),
+                    open: (float) (($quote['open'][$last] ?? null) ?? 0.0),
+                    high: (float) (($quote['high'][$last] ?? null) ?? 0.0),
+                    low: (float) (($quote['low'][$last] ?? null) ?? 0.0),
+                    previousClose: (float) ($meta['chartPreviousClose'] ?? 0.0),
+                    volume: (int) (($quote['volume'][$last] ?? null) ?? 0),
+                    fetchedAt: new \DateTimeImmutable(),
                 );
 
                 $this->saveToCache($symbol, $dto);
 
-                $this->logger->info('Veri alındı.', [
+                $this->logger->info('Yahoo quote fetched.', [
                     'symbol' => $dto->symbol,
-                    'price'  => $dto->price,
+                    'price' => $dto->price,
                 ]);
 
-                return $dto;
-
+                return $this->buildStatus($symbol, $dto, 'api', 'ok');
             } catch (\Throwable $e) {
-                $this->logger->error('İstek hatası.', [
+                $this->logger->error('Yahoo request failed.', [
                     'symbol' => $symbol,
-                    'hata'   => $e->getMessage(),
+                    'error' => $e->getMessage(),
+                    'attempt' => $attempt + 1,
                 ]);
-                return null;
+
+                if ($attempt < self::MAX_RETRY - 1) {
+                    sleep($this->backoffSeconds($attempt));
+                    continue;
+                }
+
+                return $this->buildStatusFromLast(
+                    $symbol,
+                    'request_error',
+                    null,
+                    'Yahoo istegi basarisiz oldu. Son basarili veri gosteriliyor.'
+                );
             }
         }
 
-        $this->logger->error('Retry sınırı aşıldı.', ['symbol' => $symbol]);
-        return null;
+        $this->logger->error('Yahoo retry limit exceeded.', ['symbol' => $symbol]);
+
+        return $this->buildStatusFromLast(
+            $symbol,
+            'retry_exceeded',
+            null,
+            'Yahoo retry siniri asildi. Son basarili veri gosteriliyor.'
+        );
     }
 
     private function getFromCache(string $normalizedSymbol): ?MarketDataDto
@@ -244,11 +342,28 @@ class YahooFinanceService
         try {
             $item = $this->cache->getItem($this->cacheKey($normalizedSymbol));
             if ($item->isHit()) {
-                /** @var MarketDataDto $dto */
                 $dto = $item->get();
-                return $dto;
+
+                return $dto instanceof MarketDataDto ? $dto : null;
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable) {
+        }
+
+        return null;
+    }
+
+    private function getLastSuccessfulFromCache(string $normalizedSymbol): ?MarketDataDto
+    {
+        try {
+            $item = $this->cache->getItem($this->lastSuccessCacheKey($normalizedSymbol));
+            if ($item->isHit()) {
+                $dto = $item->get();
+
+                return $dto instanceof MarketDataDto ? $dto : null;
+            }
+        } catch (\Throwable) {
+        }
+
         return null;
     }
 
@@ -260,8 +375,13 @@ class YahooFinanceService
             $item->expiresAfter(self::SYMBOL_TTL);
             $this->cache->save($item);
         } catch (\Throwable $e) {
-            $this->logger->warning('Cache yazma hatası.', ['symbol' => $normalizedSymbol, 'hata' => $e->getMessage()]);
+            $this->logger->warning('Yahoo short cache write failed.', [
+                'symbol' => $normalizedSymbol,
+                'error' => $e->getMessage(),
+            ]);
         }
+
+        $this->saveLastSuccessfulToCache($normalizedSymbol, $dto);
     }
 
     private function block(string $symbol): void
@@ -271,7 +391,8 @@ class YahooFinanceService
             $item->set(true);
             $item->expiresAfter(self::BLOCK_DURATION);
             $this->cache->save($item);
-        } catch (\Throwable) {}
+        } catch (\Throwable) {
+        }
     }
 
     private function isBlocked(string $symbol): bool
@@ -283,6 +404,75 @@ class YahooFinanceService
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildStatus(
+        string $normalizedSymbol,
+        ?MarketDataDto $data,
+        string $source,
+        string $status,
+        ?int $httpStatus = null,
+        ?string $message = null,
+        bool $isStale = false,
+    ): array {
+        if ($data instanceof MarketDataDto && !$isStale && $status === 'ok') {
+            $this->saveLastSuccessfulToCache($normalizedSymbol, $data);
+        }
+
+        $lastSuccessful = $data ?? $this->getLastSuccessfulFromCache($normalizedSymbol);
+
+        return [
+            'symbol' => $data?->symbol ?? $this->bareSymbol($normalizedSymbol),
+            'data' => $data,
+            'lastSuccessful' => $lastSuccessful,
+            'source' => $source,
+            'status' => $status,
+            'httpStatus' => $httpStatus,
+            'message' => $message,
+            'isStale' => $isStale,
+            'fetchedAt' => $data?->fetchedAt,
+            'lastSuccessfulAt' => $lastSuccessful?->fetchedAt,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildStatusFromLast(
+        string $normalizedSymbol,
+        string $status,
+        ?int $httpStatus,
+        string $message,
+    ): array {
+        $lastSuccessful = $this->getLastSuccessfulFromCache($normalizedSymbol);
+
+        return $this->buildStatus(
+            $normalizedSymbol,
+            $lastSuccessful,
+            $lastSuccessful instanceof MarketDataDto ? 'last_success' : 'none',
+            $status,
+            $httpStatus,
+            $message,
+            $lastSuccessful instanceof MarketDataDto
+        );
+    }
+
+    private function saveLastSuccessfulToCache(string $normalizedSymbol, MarketDataDto $dto): void
+    {
+        try {
+            $lastItem = $this->cache->getItem($this->lastSuccessCacheKey($normalizedSymbol));
+            $lastItem->set($dto);
+            $lastItem->expiresAfter(self::LAST_SUCCESS_TTL);
+            $this->cache->save($lastItem);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Yahoo last-success cache write failed.', [
+                'symbol' => $normalizedSymbol,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     private function backoffSeconds(int $attempt): int
     {
         return min((int) (2 ** $attempt) * 2, 30) + random_int(1, 5);
@@ -291,6 +481,7 @@ class YahooFinanceService
     private function normalizeSymbol(string $symbol): string
     {
         $symbol = strtoupper(trim($symbol));
+
         return str_ends_with($symbol, '.IS') ? $symbol : $symbol . '.IS';
     }
 
@@ -299,13 +490,18 @@ class YahooFinanceService
         return strtoupper(str_replace('.IS', '', $symbol));
     }
 
-    private function cacheKey(string $s): string
+    private function cacheKey(string $symbol): string
     {
-        return 'yahoo.quote.' . strtolower(str_replace(['.', ' '], '_', $s));
+        return 'yahoo.quote.' . strtolower(str_replace(['.', ' '], '_', $symbol));
     }
 
-    private function blockKey(string $s): string
+    private function lastSuccessCacheKey(string $symbol): string
     {
-        return 'yahoo.block.' . strtolower(str_replace(['.', ' '], '_', $s));
+        return 'yahoo.last_success.' . strtolower(str_replace(['.', ' '], '_', $symbol));
+    }
+
+    private function blockKey(string $symbol): string
+    {
+        return 'yahoo.block.' . strtolower(str_replace(['.', ' '], '_', $symbol));
     }
 }

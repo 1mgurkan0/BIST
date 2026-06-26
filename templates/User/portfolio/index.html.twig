@@ -152,13 +152,31 @@
                     </tr>
                 {% else %}
                     {% for item in items %}
+                        {% set quoteStatus = marketStatuses[item.symbol]|default(null) %}
                         <tr data-id="{{ item.id }}">
                             <td class="ps-4">
                                 <div class="fw-bold text-light fs-5">{{ item.symbol }}</div>
                             </td>
                             <td class="text-end font-monospace">{{ item.lot|number_format(0, ',', '.') }}</td>
                             <td class="text-end font-monospace text-secondary">₺ {{ item.costPrice|number_format(2, ',', '.') }}</td>
-                            <td class="text-end font-monospace fw-bold row-price">₺ {{ item.currentPrice|default(item.costPrice)|number_format(2, ',', '.') }}</td>
+                            <td class="text-end font-monospace">
+                                <div class="fw-bold row-price">₺ {{ item.currentPrice|default(item.costPrice)|number_format(2, ',', '.') }}</div>
+                                <div class="row-status small mt-1">
+                                    {% if quoteStatus and quoteStatus.httpStatus == 429 %}
+                                        <span class="badge text-bg-danger">!429</span>
+                                        <span class="text-secondary">
+                                            Son çekilen:
+                                            {{ quoteStatus.lastSuccessfulPrice is not null ? '₺ ' ~ quoteStatus.lastSuccessfulPrice|number_format(2, ',', '.') : '-' }}
+                                        </span>
+                                    {% elseif quoteStatus and quoteStatus.quoteStatus != 'ok' and quoteStatus.quoteStatus != 'missing_price' %}
+                                        <span class="badge text-bg-warning">Veri uyarısı</span>
+                                        <span class="text-secondary">
+                                            Son çekilen:
+                                            {{ quoteStatus.lastSuccessfulPrice is not null ? '₺ ' ~ quoteStatus.lastSuccessfulPrice|number_format(2, ',', '.') : '-' }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </td>
                             <td class="text-end font-monospace fw-bold text-light row-total">₺ {{ item.totalValue|default(0)|number_format(2, ',', '.') }}</td>
                             <td class="text-end row-daily">
                                 {% set dChange = item.dailyChange|default(0) %}
@@ -385,6 +403,23 @@
             return Math.abs(n).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2});
         }
 
+        function renderQuoteStatus(item) {
+            var lastPrice = item.lastSuccessfulPrice ?? item.currentPrice;
+            var lastText = lastPrice === null ? '-' : '₺ ' + fmt(lastPrice);
+
+            if (item.httpStatus === 429 || item.quoteStatus === 'rate_limited') {
+                return '<span class="badge text-bg-danger">!429</span> ' +
+                    '<span class="text-secondary">Son çekilen: ' + lastText + '</span>';
+            }
+
+            if (item.quoteStatus && item.quoteStatus !== 'ok' && item.quoteStatus !== 'missing_price') {
+                return '<span class="badge text-bg-warning">Veri uyarısı</span> ' +
+                    '<span class="text-secondary">Son çekilen: ' + lastText + '</span>';
+            }
+
+            return '';
+        }
+
         function updateAll(data) {
 
             var tv = data.totalValue;
@@ -411,6 +446,7 @@
                 if (!row) return;
 
                 row.querySelector('.row-price').textContent = '₺ ' + fmt(item.currentPrice);
+                row.querySelector('.row-status').innerHTML = renderQuoteStatus(item);
                 row.querySelector('.row-total').textContent = '₺ ' + fmt(item.totalValue);
 
                 var dEl = row.querySelector('.row-daily');

@@ -66,9 +66,9 @@ class AdminResetPasswordCommand extends Command
 
         $user
             ->setRoles(['ROLE_ADMIN'])
-            ->setIsVerified(true)
-            ->clearResetCode()
-            ->setPassword($this->passwordHasher->hashPassword($user, $plainPassword));
+            ->setIsVerified(true);
+        $user->clearResetCode();
+        $user->setPassword($this->passwordHasher->hashPassword($user, $plainPassword));
 
         $this->em->flush();
 

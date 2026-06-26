@@ -30,11 +30,15 @@ final class PortfolioController extends AbstractController
         $totalDailyChange   = 0;
         $totalPreviousValue = 0;
 
-        $symbols       = array_map(fn($item) => $item->getSymbol(), $items);
-        $marketDataMap = $this->yahooFinance->fetchBatch($symbols);
+        $symbols        = array_map(fn($item) => $item->getSymbol(), $items);
+        $marketDataMap  = $this->yahooFinance->fetchBatchWithStatus($symbols);
+        $marketStatuses = [];
 
         foreach ($items as $item) {
-            $marketData = $marketDataMap[strtoupper($item->getSymbol())] ?? null;
+            $symbol = strtoupper($item->getSymbol());
+            $quoteStatus = $marketDataMap[$symbol] ?? null;
+            $marketStatuses[$symbol] = $this->marketStatusPayload($quoteStatus);
+            $marketData = $quoteStatus['data'] ?? null;
 
             if ($marketData) {
                 $currentPrice  = $marketData->price;
@@ -42,7 +46,7 @@ final class PortfolioController extends AbstractController
 
                 $item->setCurrentPrice($currentPrice);
                 $item->setDailyChange($currentPrice - $previousClose);
-                $item->setDailyChangePercent(($currentPrice - $previousClose) / $previousClose * 100);
+                $item->setDailyChangePercent($previousClose > 0 ? ($currentPrice - $previousClose) / $previousClose * 100 : 0);
                 $item->setTotalValue($item->getLot() * $currentPrice);
                 $item->setProfitLoss($item->getTotalValue() - ($item->getLot() * $item->getCostPrice()));
                 $item->setProfitLossPercent($item->getCostPrice() > 0
@@ -83,6 +87,7 @@ final class PortfolioController extends AbstractController
             'profitLossPercent'       => $profitLossPercent,
             'totalDailyChange'        => $totalDailyChange,
             'totalDailyChangePercent' => $totalDailyChangePercent,
+            'marketStatuses'          => $marketStatuses,
         ]);
     }
 
@@ -303,7 +308,7 @@ EOT;
     {
         $items         = $repo->findAll();
         $symbols       = array_map(fn($item) => $item->getSymbol(), $items);
-        $marketDataMap = $this->yahooFinance->fetchBatch($symbols);
+        $marketDataMap = $this->yahooFinance->fetchBatchWithStatus($symbols);
 
         $result         = [];
         $totalValue     = 0;
@@ -312,7 +317,8 @@ EOT;
         $totalPrevValue = 0;
 
         foreach ($items as $item) {
-            $md = $marketDataMap[strtoupper($item->getSymbol())] ?? null;
+            $quoteStatus = $marketDataMap[strtoupper($item->getSymbol())] ?? null;
+            $md = $quoteStatus['data'] ?? null;
 
             $currentPrice  = $md ? $md->price         : $item->getCostPrice();
             $previousClose = $md ? $md->previousClose  : $item->getCostPrice();
@@ -329,7 +335,7 @@ EOT;
             $totalDailyChg += $item->getLot() * ($currentPrice - $previousClose);
             $totalPrevValue += $item->getLot() * $previousClose;
 
-            $result[] = [
+            $result[] = array_merge([
                 'id'               => $item->getId(),
                 'symbol'           => $item->getSymbol(),
                 'currentPrice'     => round($currentPrice, 2),
@@ -338,7 +344,7 @@ EOT;
                 'profitLossPct'    => round($profitLossPct, 2),
                 'dailyChange'      => round($dailyChg, 2),
                 'dailyChangePct'   => round($dailyChgPct, 2),
-            ];
+            ], $this->marketStatusPayload($quoteStatus));
         }
 
         $totalProfitLoss    = $totalValue - $totalCost;
@@ -353,6 +359,25 @@ EOT;
             'totalDailyChg'  => round($totalDailyChg, 2),
             'dailyChangePct' => round($dailyChangePct, 2),
         ]);
+    }
+
+    /**
+     * @param array<string, mixed>|null $quoteStatus
+     * @return array<string, mixed>
+     */
+    private function marketStatusPayload(?array $quoteStatus): array
+    {
+        $lastSuccessful = $quoteStatus['lastSuccessful'] ?? null;
+
+        return [
+            'quoteStatus' => $quoteStatus['status'] ?? 'missing_price',
+            'source' => $quoteStatus['source'] ?? null,
+            'httpStatus' => $quoteStatus['httpStatus'] ?? null,
+            'statusMessage' => $quoteStatus['message'] ?? null,
+            'isStale' => (bool) ($quoteStatus['isStale'] ?? false),
+            'lastSuccessfulPrice' => $lastSuccessful?->price,
+            'lastSuccessfulAt' => $lastSuccessful?->fetchedAt?->format(\DateTimeInterface::ATOM),
+        ];
     }
 
 }

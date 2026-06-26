@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="tr" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="icon" type="image/png" href="{{ asset('images/logo/bam-logo.ico') }}?v=1">
+    <title>BAM | Takip Listesi</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #121826; color: #f3f4f6; }
+        .card-custom { background-color: #1f2937; border: 1px solid #374151; border-radius: 1rem; }
+        .text-yellow-custom { color: #eab308; }
+        .btn-yellow-custom { background-color: #ca8a04; color: white; border: none; }
+        .btn-yellow-custom:hover { background-color: #a16207; color: white; }
+        .table-custom { --bs-table-bg: transparent; --bs-table-color: #f3f4f6; --bs-table-border-color: #374151; }
+        .table-custom th {
+            color: #9ca3af; font-weight: 600; letter-spacing: .05em;
+            text-transform: uppercase; font-size: .82rem; border-bottom-width: 2px;
+        }
+        .table-custom tbody tr:hover { background-color: rgba(255,255,255,.05); }
+        .tracking-widest { letter-spacing: .1em; }
+        .live-dot {
+            display: inline-block; width: 8px; height: 8px; background: #22c55e;
+            border-radius: 50%; animation: pulse 2s infinite; margin-right: 6px;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .4; transform: scale(1.3); }
+        }
+    </style>
+</head>
+<body class="py-5">
+<div class="container" style="max-width: 1100px;">
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label == 'error' ? 'danger' : (label == 'success' ? 'success' : 'warning') }} alert-dismissible fade show shadow-sm mt-3" role="alert">
+                <strong><i class="bi bi-info-circle-fill"></i> BAM Sistem Mesajı:</strong> {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    {% set activeCount = items|filter(item => item.active)|length %}
+    {% set passiveCount = items|length - activeCount %}
+
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-5">
+        <a href="{{ path('app-home') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 align-self-start">
+            <i class="bi bi-arrow-left"></i> Ana Panele Dön
+        </a>
+        <div class="text-center">
+            <h2 class="m-0 fw-bold tracking-widest text-yellow-custom">TAKİP LİSTESİ</h2>
+            <small class="text-secondary"><span class="live-dot"></span>aktif semboller canlı izleniyor · <span id="last-update">-</span></small>
+        </div>
+        <a href="{{ path('app_portfolio') }}" class="btn btn-outline-warning btn-sm rounded-pill px-3 align-self-start align-self-lg-auto">
+            <i class="bi bi-briefcase"></i> Portföy
+        </a>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card-custom p-4 h-100 border-start border-4 border-success">
+                <small class="text-secondary fw-bold tracking-widest d-block mb-2">AKTİF TAKİP</small>
+                <h3 class="fw-bold mb-0 text-success">{{ activeCount }}</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-custom p-4 h-100 border-start border-4 border-secondary">
+                <small class="text-secondary fw-bold tracking-widest d-block mb-2">PASİF</small>
+                <h3 class="fw-bold mb-0 text-secondary">{{ passiveCount }}</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-custom p-4 h-100 border-start border-4 border-warning">
+                <small class="text-secondary fw-bold tracking-widest d-block mb-2">TOPLAM SEMBOL</small>
+                <h3 class="fw-bold mb-0 text-yellow-custom">{{ items|length }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-custom p-4 mb-4 shadow-sm">
+        <form action="{{ path('app_watchlist_add') }}" method="POST" class="row g-3 align-items-end">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('watchlist_add') }}">
+            <div class="col-md-3">
+                <label class="form-label text-secondary small fw-bold tracking-widest">HİSSE KODU</label>
+                <input type="text" name="symbol" class="form-control bg-dark border-secondary text-white text-uppercase" placeholder="ASELS" required>
+            </div>
+            <div class="col-md-7">
+                <label class="form-label text-secondary small fw-bold tracking-widest">NOT</label>
+                <input type="text" name="note" class="form-control bg-dark border-secondary text-white" placeholder="Takip sebebi, seviye, haber beklentisi...">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-yellow-custom w-100 fw-bold">
+                    <i class="bi bi-plus-lg"></i> Ekle
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card-custom shadow-lg overflow-hidden border-0">
+        <div class="p-4 border-bottom border-secondary bg-dark bg-opacity-50">
+            <h5 class="mb-0 fw-bold"><i class="bi bi-radar text-yellow-custom me-2"></i> Radar Sembolleri</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-custom align-middle mb-0">
+                <thead>
+                <tr>
+                    <th class="ps-4">Sembol</th>
+                    <th>Durum</th>
+                    <th class="text-end">Fiyat</th>
+                    <th class="text-end">Günlük Değişim</th>
+                    <th class="text-end">Hacim</th>
+                    <th>Not</th>
+                    <th class="text-center pe-4">İşlem</th>
+                </tr>
+                </thead>
+                <tbody id="watchlist-tbody">
+                {% if items is empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-secondary py-5">
+                            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                            <span class="fs-5">Takip listenizde henüz sembol yok</span>
+                        </td>
+                    </tr>
+                {% else %}
+                    {% for item in items %}
+                        {% set quote = marketData.items[item.symbol]|default(null) %}
+                        <tr data-symbol="{{ item.symbol }}">
+                            <td class="ps-4">
+                                <div class="fw-bold text-light fs-5">{{ item.symbol }}</div>
+                            </td>
+                            <td>
+                                <span class="badge {{ item.active ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                    {{ item.active ? 'Aktif' : 'Pasif' }}
+                                </span>
+                            </td>
+                            <td class="text-end font-monospace">
+                                <div class="fw-bold row-price">
+                                    {{ quote and quote.price is not null ? '₺ ' ~ quote.price|number_format(2, ',', '.') : '-' }}
+                                </div>
+                                <div class="row-status small mt-1">
+                                    {% if quote and quote.httpStatus == 429 %}
+                                        <span class="badge text-bg-danger">!429</span>
+                                        <span class="text-secondary">
+                                            Son çekilen:
+                                            {{ quote.lastSuccessfulPrice is not null ? '₺ ' ~ quote.lastSuccessfulPrice|number_format(2, ',', '.') : '-' }}
+                                        </span>
+                                    {% elseif quote and quote.status != 'ok' and quote.status != 'missing_price' %}
+                                        <span class="badge text-bg-warning">Veri uyarısı</span>
+                                        <span class="text-secondary">
+                                            Son çekilen:
+                                            {{ quote.lastSuccessfulPrice is not null ? '₺ ' ~ quote.lastSuccessfulPrice|number_format(2, ',', '.') : '-' }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="text-end row-daily">
+                                {% if quote and quote.dailyChangePercent is not null %}
+                                    <div class="font-monospace fw-bold {{ quote.dailyChange >= 0 ? 'text-success' : 'text-danger' }}">
+                                        {{ quote.dailyChange >= 0 ? '+' : '-' }}₺ {{ quote.dailyChange|abs|number_format(2, ',', '.') }}
+                                    </div>
+                                    <small class="{{ quote.dailyChangePercent >= 0 ? 'text-success' : 'text-danger' }}">
+                                        {{ quote.dailyChangePercent|number_format(2, ',', '.') }}%
+                                    </small>
+                                {% else %}
+                                    <span class="text-secondary">Veri yok</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end font-monospace row-volume">
+                                {{ quote and quote.volume is not null ? quote.volume|number_format(0, ',', '.') : '-' }}
+                            </td>
+                            <td class="text-secondary small" style="max-width: 260px;">{{ item.note|default('-') }}</td>
+                            <td class="text-center pe-4">
+                                <div class="d-flex justify-content-center gap-2">
+                                    <form action="{{ path('app_watchlist_toggle', {id: item.id}) }}" method="POST">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('watchlist_toggle_' ~ item.id) }}">
+                                        <button type="submit" class="btn btn-sm {{ item.active ? 'btn-outline-secondary' : 'btn-outline-success' }} border-0" title="{{ item.active ? 'Pasife al' : 'Aktif et' }}">
+                                            <i class="bi {{ item.active ? 'bi-pause-circle' : 'bi-play-circle' }}"></i>
+                                        </button>
+                                    </form>
+                                    <form action="{{ path('app_watchlist_delete', {id: item.id}) }}" method="POST" onsubmit="return confirm('Bu sembolü takip listesinden silmek istediğinize emin misiniz?')">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('watchlist_delete_' ~ item.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Sil">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        function fmt(n) {
+            return Math.abs(n).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        function fmtInt(n) {
+            return Math.abs(n).toLocaleString('tr-TR', {maximumFractionDigits: 0});
+        }
+
+        function renderQuoteStatus(item) {
+            var lastPrice = item.lastSuccessfulPrice ?? item.price;
+            var lastText = lastPrice === null ? '-' : '₺ ' + fmt(lastPrice);
+
+            if (item.httpStatus === 429 || item.status === 'rate_limited') {
+                return '<span class="badge text-bg-danger">!429</span> ' +
+                    '<span class="text-secondary">Son çekilen: ' + lastText + '</span>';
+            }
+
+            if (item.status && item.status !== 'ok' && item.status !== 'missing_price') {
+                return '<span class="badge text-bg-warning">Veri uyarısı</span> ' +
+                    '<span class="text-secondary">Son çekilen: ' + lastText + '</span>';
+            }
+
+            return '';
+        }
+
+        function updateRows(data) {
+            document.getElementById('last-update').textContent = new Date(data.fetchedAt).toLocaleTimeString('tr-TR', {
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+
+            Object.values(data.items || {}).forEach(function (item) {
+                var row = document.querySelector('tr[data-symbol="' + item.symbol + '"]');
+                if (!row) return;
+
+                row.querySelector('.row-price').textContent = item.price === null ? '-' : '₺ ' + fmt(item.price);
+                row.querySelector('.row-status').innerHTML = renderQuoteStatus(item);
+                row.querySelector('.row-volume').textContent = item.volume === null ? '-' : fmtInt(item.volume);
+
+                var daily = row.querySelector('.row-daily');
+                if (item.dailyChangePercent === null) {
+                    daily.innerHTML = '<span class="text-secondary">Veri yok</span>';
+                    return;
+                }
+
+                var positive = item.dailyChange >= 0;
+                daily.innerHTML =
+                    '<div class="font-monospace fw-bold ' + (positive ? 'text-success' : 'text-danger') + '">' +
+                    (positive ? '+' : '-') + '₺ ' + fmt(item.dailyChange) +
+                    '</div><small class="' + (item.dailyChangePercent >= 0 ? 'text-success' : 'text-danger') + '">' +
+                    fmt(item.dailyChangePercent) + '%</small>';
+            });
+        }
+
+        updateRows({{ marketData|json_encode|raw }});
+
+        setInterval(function () {
+            fetch('{{ path('api_watchlist_live') }}')
+                .then(function (response) { return response.json(); })
+                .then(updateRows)
+                .catch(function (error) { console.error('Takip listesi verisi alınamadı:', error); });
+        }, 45000);
+    });
+</script>
+</body>
+</html>
