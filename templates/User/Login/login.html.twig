@@ -136,13 +136,6 @@
         .btn-custom:hover { background: #facc15; transform: translateY(-2px); box-shadow: 0 12px 25px -6px rgba(234, 179, 8, 0.5); }
         .btn-custom:active { transform: translateY(0); }
 
-        .bottom-link { text-align: center; margin-top: 2rem; font-size: 1rem; color: #64748b; border-top: 1px solid #1f2129; padding-top: 2rem;}
-        .bottom-link a { color: #ffffff; font-weight: 700; text-decoration: none; transition: color 0.2s; margin-left: 0.5rem;}
-        .bottom-link a:hover { color: #eab308; }
-
-        .forgot-link { color: #eab308; font-size: 0.85rem; font-weight: 500; text-decoration: none; transition: opacity 0.2s; }
-        .forgot-link:hover { opacity: 0.8; }
-
         .flash-alert {
             padding: 1rem 1.25rem; border-radius: 12px; font-size: 0.9rem; font-weight: 500; margin-bottom: 1.5rem;
             display: flex; align-items: center; gap: 0.75rem;
@@ -214,7 +207,6 @@
                     <div class="input-group-custom">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                             <label class="label-custom" for="inputPassword" style="margin-bottom: 0;">ŞİFRE</label>
-                             <a href="{{ path('app_forgot_password') }}" class="forgot-link">Şifremi unuttum</a>
                         </div>
                         <input
                                 type="password"
@@ -239,10 +231,6 @@
                     </button>
 
                 </form>
-
-                <div class="bottom-link">
-                    Hesabınız yok mu? <a href="{{ path('app_register') }}">Kayıt Olun</a>
-                </div>
 
             </div>
         </div>
