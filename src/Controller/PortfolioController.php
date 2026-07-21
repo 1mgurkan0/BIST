@@ -8,9 +8,10 @@ use App\Repository\KapNewsRepository;
 use App\Repository\PortfolioRepository;
 use App\Repository\StockRepository;
 use App\Service\GeminiService;
-use App\Service\YahooFinanceService;
+use App\Service\PriceSnapshotService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -18,7 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class PortfolioController extends AbstractController
 {
     public function __construct(
-        private YahooFinanceService $yahooFinance
+        private PriceSnapshotService $priceSnapshot
     ) {}
 
     #[Route('/portfolio', name: 'app_portfolio')]
@@ -31,18 +32,17 @@ final class PortfolioController extends AbstractController
         $totalPreviousValue = 0;
 
         $symbols        = array_map(fn($item) => $item->getSymbol(), $items);
-        $marketDataMap  = $this->yahooFinance->fetchBatchWithStatus($symbols);
+        $marketDataMap  = $this->priceSnapshot->itemsForSymbols($symbols);
         $marketStatuses = [];
 
         foreach ($items as $item) {
             $symbol = strtoupper($item->getSymbol());
             $quoteStatus = $marketDataMap[$symbol] ?? null;
             $marketStatuses[$symbol] = $this->marketStatusPayload($quoteStatus);
-            $marketData = $quoteStatus['data'] ?? null;
 
-            if ($marketData) {
-                $currentPrice  = $marketData->price;
-                $previousClose = $marketData->previousClose;
+            if ($this->hasSnapshotPrice($quoteStatus)) {
+                $currentPrice  = (float) $quoteStatus['price'];
+                $previousClose = (float) ($quoteStatus['previousClose'] ?? $item->getCostPrice());
 
                 $item->setCurrentPrice($currentPrice);
                 $item->setDailyChange($currentPrice - $previousClose);
@@ -94,36 +94,39 @@ final class PortfolioController extends AbstractController
     #[Route('/portfolio/add', name: 'app_portfolio_add', methods: ['POST'])]
     public function addStock(Request $request, EntityManagerInterface $em): Response
     {
-        $symbol = $request->get('symbol');
-        $lot    = $request->get('lot');
-        $cost   = $request->get('cost');
+        $symbol = strtoupper(trim((string) $request->get('symbol')));
+        $lot    = (int) $request->get('lot');
+        $cost   = (float) $request->get('cost');
 
         $portfolio = new Portfolio();
-        $portfolio->setSymbol(strtoupper($symbol));
-        $portfolio->setLot((int) $lot);
-        $portfolio->setCostPrice((float) $cost);
+        $portfolio->setSymbol($symbol);
+        $portfolio->setLot($lot);
+        $portfolio->setCostPrice($cost);
         $portfolio->setTransactionDate(new \DateTime());
         $portfolio->setLastUpdated(new \DateTime());
 
-        $marketData = $this->yahooFinance->fetchOne($symbol);
+        $quoteStatus = $this->priceSnapshot->itemsForSymbols([$symbol])[$symbol] ?? null;
 
-        if ($marketData) {
-            $portfolio->setCurrentPrice($marketData->price);
-            $portfolio->setDailyChange($marketData->price - $marketData->previousClose);
+        if ($this->hasSnapshotPrice($quoteStatus)) {
+            $currentPrice = (float) $quoteStatus['price'];
+            $previousClose = (float) ($quoteStatus['previousClose'] ?? $currentPrice);
+
+            $portfolio->setCurrentPrice($currentPrice);
+            $portfolio->setDailyChange($currentPrice - $previousClose);
             $portfolio->setDailyChangePercent(
-                ($marketData->price - $marketData->previousClose) / $marketData->previousClose * 100
+                $previousClose > 0 ? (($currentPrice - $previousClose) / $previousClose * 100) : 0
             );
-            $portfolio->setTotalValue($lot * $marketData->price);
+            $portfolio->setTotalValue($lot * $currentPrice);
         } else {
             $portfolio->setCurrentPrice((float) $cost);
             $portfolio->setDailyChange(0);
             $portfolio->setDailyChangePercent(0);
-            $portfolio->setTotalValue($lot * (float) $cost);
+            $portfolio->setTotalValue($lot * $cost);
         }
 
-        $portfolio->setProfitLoss($portfolio->getTotalValue() - ($lot * (float) $cost));
+        $portfolio->setProfitLoss($portfolio->getTotalValue() - ($lot * $cost));
         $portfolio->setProfitLossPercent($portfolio->getCostPrice() > 0
-            ? ($portfolio->getProfitLoss() / ($lot * (float) $cost)) * 100
+            ? ($portfolio->getProfitLoss() / ($lot * $cost)) * 100
             : 0
         );
 
@@ -176,7 +179,6 @@ final class PortfolioController extends AbstractController
         PortfolioRepository $portfolioRepo,
         StockRepository $stockRepo,
         KapNewsRepository $kapNewsRepo,
-        YahooFinanceService $yahooService,
         GeminiService $geminiService,
         EntityManagerInterface $em
     ): Response {
@@ -191,19 +193,10 @@ final class PortfolioController extends AbstractController
         $stockData = $stockRepo->findRecent($symbol, 1);
 
         if (!$stockData) {
-            $yahooResult = $yahooService->fetchOne($symbol);
+            $quoteStatus = $this->priceSnapshot->itemsForSymbols([$symbol])[strtoupper($symbol)] ?? null;
 
-            if ($yahooResult) {
-                $stockData = new Stock();
-                $stockData->setSymbol($yahooResult->symbol);
-                $stockData->setPrice($yahooResult->price);
-                $stockData->setOpen($yahooResult->open);
-                $stockData->setHigh($yahooResult->high);
-                $stockData->setLow($yahooResult->low);
-                $stockData->setPreviousClose($yahooResult->previousClose);
-                $stockData->setVolume($yahooResult->volume);
-                $stockData->setCreatedAt(new \DateTime());
-
+            if ($this->hasSnapshotPrice($quoteStatus)) {
+                $stockData = $this->stockFromSnapshot($quoteStatus);
                 $em->persist($stockData);
                 $em->flush();
             }
@@ -304,11 +297,11 @@ EOT;
     }
 
     #[Route('/api/portfolio/live', name: 'api_portfolio_live', methods: ['GET'])]
-    public function liveData(PortfolioRepository $repo): \Symfony\Component\HttpFoundation\JsonResponse
+    public function liveData(PortfolioRepository $repo): JsonResponse
     {
         $items         = $repo->findAll();
         $symbols       = array_map(fn($item) => $item->getSymbol(), $items);
-        $marketDataMap = $this->yahooFinance->fetchBatchWithStatus($symbols);
+        $marketDataMap = $this->priceSnapshot->itemsForSymbols($symbols);
 
         $result         = [];
         $totalValue     = 0;
@@ -318,10 +311,9 @@ EOT;
 
         foreach ($items as $item) {
             $quoteStatus = $marketDataMap[strtoupper($item->getSymbol())] ?? null;
-            $md = $quoteStatus['data'] ?? null;
 
-            $currentPrice  = $md ? $md->price         : $item->getCostPrice();
-            $previousClose = $md ? $md->previousClose  : $item->getCostPrice();
+            $currentPrice  = $this->hasSnapshotPrice($quoteStatus) ? (float) $quoteStatus['price'] : $item->getCostPrice();
+            $previousClose = $this->hasSnapshotPrice($quoteStatus) ? (float) ($quoteStatus['previousClose'] ?? $currentPrice) : $item->getCostPrice();
 
             $totalVal  = $item->getLot() * $currentPrice;
             $costTotal = $item->getLot() * $item->getCostPrice();
@@ -367,17 +359,40 @@ EOT;
      */
     private function marketStatusPayload(?array $quoteStatus): array
     {
-        $lastSuccessful = $quoteStatus['lastSuccessful'] ?? null;
-
         return [
-            'quoteStatus' => $quoteStatus['status'] ?? 'missing_price',
+            'quoteStatus' => $quoteStatus['quoteStatus'] ?? ($quoteStatus['status'] ?? 'missing_price'),
             'source' => $quoteStatus['source'] ?? null,
             'httpStatus' => $quoteStatus['httpStatus'] ?? null,
-            'statusMessage' => $quoteStatus['message'] ?? null,
+            'statusMessage' => $quoteStatus['statusMessage'] ?? null,
             'isStale' => (bool) ($quoteStatus['isStale'] ?? false),
-            'lastSuccessfulPrice' => $lastSuccessful?->price,
-            'lastSuccessfulAt' => $lastSuccessful?->fetchedAt?->format(\DateTimeInterface::ATOM),
+            'lastSuccessfulPrice' => $quoteStatus['lastSuccessfulPrice'] ?? null,
+            'lastSuccessfulAt' => $quoteStatus['lastSuccessfulAt'] ?? null,
         ];
     }
 
+    /**
+     * @param array<string, mixed>|null $quoteStatus
+     */
+    private function hasSnapshotPrice(?array $quoteStatus): bool
+    {
+        return is_array($quoteStatus) && is_numeric($quoteStatus['price'] ?? null);
+    }
+
+    /**
+     * @param array<string, mixed> $quoteStatus
+     */
+    private function stockFromSnapshot(array $quoteStatus): Stock
+    {
+        $stock = new Stock();
+        $stock->setSymbol((string) $quoteStatus['symbol']);
+        $stock->setPrice((float) $quoteStatus['price']);
+        $stock->setOpen((float) ($quoteStatus['open'] ?? 0));
+        $stock->setHigh((float) ($quoteStatus['high'] ?? 0));
+        $stock->setLow((float) ($quoteStatus['low'] ?? 0));
+        $stock->setPreviousClose((float) ($quoteStatus['previousClose'] ?? 0));
+        $stock->setVolume((int) ($quoteStatus['volume'] ?? 0));
+        $stock->setCreatedAt(new \DateTime());
+
+        return $stock;
+    }
 }

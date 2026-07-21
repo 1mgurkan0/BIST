@@ -47,6 +47,9 @@
 
     {% set activeCount = items|filter(item => item.active)|length %}
     {% set passiveCount = items|length - activeCount %}
+    {% set alerts = alerts|default([]) %}
+    {% set activeAlertCount = alerts|filter(alert => alert.active and not alert.triggered)|length %}
+    {% set triggeredAlertCount = alerts|filter(alert => alert.triggered)|length %}
 
     <div class="bam-card p-4 mb-4">
         <div class="bam-toolbar">
@@ -105,6 +108,135 @@
                 </button>
             </div>
         </form>
+    </div>
+
+    <div class="card-custom p-4 mb-4 shadow-sm">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+            <div>
+                <div class="bam-eyebrow">Alarm sistemi</div>
+                <h5 class="mb-1 fw-bold text-yellow-custom"><i class="bi bi-bell me-2"></i>Fiyat Alarmları</h5>
+                <small class="text-secondary">
+                    {{ activeAlertCount }} aktif alarm · {{ triggeredAlertCount }} tetiklenmiş alarm
+                </small>
+            </div>
+            <small class="text-secondary align-self-lg-end">
+                Kontrol komutu: <span class="font-monospace">php bin\console app:alerts:check</span>
+            </small>
+        </div>
+
+        <form action="{{ path('app_watchlist_alert_add') }}" method="POST" class="row g-3 align-items-end mb-4">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('watchlist_alert_add') }}">
+            <div class="col-md-2">
+                <label class="form-label text-secondary small fw-bold tracking-widest">HİSSE</label>
+                <select name="symbol" class="form-select bam-form-control" required>
+                    <option value="">Seç</option>
+                    {% for item in items %}
+                        <option value="{{ item.symbol }}">{{ item.symbol }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-secondary small fw-bold tracking-widest">KOŞUL</label>
+                <select name="conditionType" class="form-select bam-form-control" required>
+                    <option value="price_above">Fiyat üstüne çıkarsa</option>
+                    <option value="price_below">Fiyat altına düşerse</option>
+                    <option value="percent_up">Günlük yüzde yükselirse</option>
+                    <option value="percent_down">Günlük yüzde düşerse</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label text-secondary small fw-bold tracking-widest">HEDEF</label>
+                <input type="number" step="any" min="0.01" name="targetValue" class="form-control bam-form-control font-monospace" placeholder="120" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-secondary small fw-bold tracking-widest">NOT</label>
+                <input type="text" name="note" class="form-control bam-form-control" placeholder="Direnç, destek, plan...">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-yellow-custom w-100 fw-bold">
+                    <i class="bi bi-bell-fill"></i> Kur
+                </button>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-custom align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>Sembol</th>
+                    <th>Koşul</th>
+                    <th class="text-end">Hedef</th>
+                    <th class="text-end">Son Fiyat</th>
+                    <th>Durum</th>
+                    <th>Not</th>
+                    <th class="text-center">İşlem</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% if alerts is empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-secondary py-4">
+                            Henüz fiyat alarmı kurulmadı.
+                        </td>
+                    </tr>
+                {% else %}
+                    {% for alert in alerts %}
+                        <tr>
+                            <td class="fw-bold text-light">{{ alert.symbol }}</td>
+                            <td>{{ alert.conditionLabel() }}</td>
+                            <td class="text-end font-monospace">{{ alert.targetLabel() }}</td>
+                            <td class="text-end font-monospace">
+                                {{ alert.lastPrice is not null ? '₺ ' ~ alert.lastPrice|number_format(2, ',', '.') : '-' }}
+                                {% if alert.lastQuoteHttpStatus == 429 %}
+                                    <div><span class="badge text-bg-danger">!429</span></div>
+                                {% elseif alert.lastQuoteStatus and alert.lastQuoteStatus != 'ok' %}
+                                    <div><span class="badge text-bg-warning">Veri uyarısı</span></div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if alert.triggered %}
+                                    <span class="badge text-bg-warning">Tetiklendi</span>
+                                    {% if alert.triggeredAt %}
+                                        <div class="small text-secondary mt-1">{{ alert.triggeredAt|date('d.m.Y H:i') }}</div>
+                                    {% endif %}
+                                {% elseif alert.active %}
+                                    <span class="badge text-bg-success">Aktif</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">Pasif</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-secondary small" style="max-width: 240px;">{{ alert.note|default('-') }}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-2">
+                                    {% if alert.triggered %}
+                                        <form action="{{ path('app_watchlist_alert_reset', {id: alert.id}) }}" method="POST">
+                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('watchlist_alert_reset_' ~ alert.id) }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-success border-0" title="Tekrar kur">
+                                                <i class="bi bi-arrow-clockwise"></i>
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <form action="{{ path('app_watchlist_alert_toggle', {id: alert.id}) }}" method="POST">
+                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('watchlist_alert_toggle_' ~ alert.id) }}">
+                                            <button type="submit" class="btn btn-sm {{ alert.active ? 'btn-outline-secondary' : 'btn-outline-success' }} border-0" title="{{ alert.active ? 'Pasife al' : 'Aktif et' }}">
+                                                <i class="bi {{ alert.active ? 'bi-pause-circle' : 'bi-play-circle' }}"></i>
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                    <form action="{{ path('app_watchlist_alert_delete', {id: alert.id}) }}" method="POST" onsubmit="return confirm('Bu alarmı silmek istediğinize emin misiniz?')">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('watchlist_alert_delete_' ~ alert.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Sil">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <div class="card-custom shadow-lg overflow-hidden border-0">
@@ -234,9 +366,14 @@
         }
 
         function updateRows(data) {
-            document.getElementById('last-update').textContent = new Date(data.fetchedAt).toLocaleTimeString('tr-TR', {
-                hour: '2-digit', minute: '2-digit', second: '2-digit'
-            });
+            var lastUpdate = document.getElementById('last-update');
+            if (data.fetchedAt) {
+                lastUpdate.textContent = new Date(data.fetchedAt).toLocaleTimeString('tr-TR', {
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
+                });
+            } else {
+                lastUpdate.textContent = data.message || 'Snapshot bekleniyor';
+            }
 
             Object.values(data.items || {}).forEach(function (item) {
                 var row = document.querySelector('tr[data-symbol="' + item.symbol + '"]');

@@ -2,9 +2,11 @@
 
 namespace App\Controller;
 
+use App\Entity\PriceAlert;
 use App\Entity\WatchlistItem;
+use App\Repository\PriceAlertRepository;
 use App\Repository\WatchlistItemRepository;
-use App\Service\YahooFinanceService;
+use App\Service\PriceSnapshotService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,11 +18,11 @@ use Symfony\Component\Routing\Attribute\Route;
 class WatchlistController extends AbstractController
 {
     public function __construct(
-        private readonly YahooFinanceService $yahooFinance,
+        private readonly PriceSnapshotService $priceSnapshot,
     ) {}
 
     #[Route('', name: 'app_watchlist', methods: ['GET'])]
-    public function index(WatchlistItemRepository $repository): Response
+    public function index(WatchlistItemRepository $repository, PriceAlertRepository $alertRepository): Response
     {
         $items = $repository->findOrdered();
         $activeSymbols = array_map(
@@ -30,6 +32,7 @@ class WatchlistController extends AbstractController
 
         return $this->render('User/watchlist/index.html.twig', [
             'items' => $items,
+            'alerts' => $alertRepository->findOrdered(),
             'marketData' => $this->marketDataPayload($activeSymbols),
         ]);
     }
@@ -103,6 +106,102 @@ class WatchlistController extends AbstractController
         return $this->redirectToRoute('app_watchlist');
     }
 
+    #[Route('/alerts/add', name: 'app_watchlist_alert_add', methods: ['POST'])]
+    public function addAlert(Request $request, EntityManagerInterface $em): Response
+    {
+        if (!$this->isCsrfTokenValid('watchlist_alert_add', (string) $request->request->get('_csrf_token'))) {
+            $this->addFlash('error', 'Gecersiz alarm istegi. Sayfayi yenileyip tekrar deneyin.');
+            return $this->redirectToRoute('app_watchlist');
+        }
+
+        $symbol = strtoupper(trim((string) $request->request->get('symbol')));
+        if (!preg_match('/^[A-Z0-9]{2,20}$/', $symbol)) {
+            $this->addFlash('error', 'Alarm icin gecerli bir hisse sembolu girin.');
+            return $this->redirectToRoute('app_watchlist');
+        }
+
+        $conditionType = (string) $request->request->get('conditionType');
+        if (!in_array($conditionType, PriceAlert::TYPES, true)) {
+            $this->addFlash('error', 'Gecerli bir alarm tipi secin.');
+            return $this->redirectToRoute('app_watchlist');
+        }
+
+        $targetValue = str_replace(',', '.', trim((string) $request->request->get('targetValue')));
+        if (!is_numeric($targetValue) || (float) $targetValue <= 0) {
+            $this->addFlash('error', 'Alarm hedefi sifirdan buyuk olmali.');
+            return $this->redirectToRoute('app_watchlist');
+        }
+
+        $note = $request->request->get('note');
+
+        $alert = (new PriceAlert())
+            ->setSymbol($symbol)
+            ->setConditionType($conditionType)
+            ->setTargetValue((float) $targetValue)
+            ->setNote(is_string($note) ? $note : null);
+
+        $em->persist($alert);
+        $em->flush();
+
+        $this->addFlash('success', $symbol . ' icin fiyat alarmi kuruldu.');
+
+        return $this->redirectToRoute('app_watchlist');
+    }
+
+    #[Route('/alerts/toggle/{id}', name: 'app_watchlist_alert_toggle', methods: ['POST'])]
+    public function toggleAlert(PriceAlert $alert, Request $request, EntityManagerInterface $em): Response
+    {
+        if (!$this->isCsrfTokenValid('watchlist_alert_toggle_' . $alert->getId(), (string) $request->request->get('_csrf_token'))) {
+            $this->addFlash('error', 'Gecersiz alarm istegi. Sayfayi yenileyip tekrar deneyin.');
+            return $this->redirectToRoute('app_watchlist');
+        }
+
+        if ($alert->isActive()) {
+            $alert->setIsActive(false);
+        } else {
+            $alert->resetTrigger();
+        }
+
+        $em->flush();
+
+        $this->addFlash('success', $alert->getSymbol() . ($alert->isActive() ? ' alarmi tekrar aktif.' : ' alarmi pasife alindi.'));
+
+        return $this->redirectToRoute('app_watchlist');
+    }
+
+    #[Route('/alerts/reset/{id}', name: 'app_watchlist_alert_reset', methods: ['POST'])]
+    public function resetAlert(PriceAlert $alert, Request $request, EntityManagerInterface $em): Response
+    {
+        if (!$this->isCsrfTokenValid('watchlist_alert_reset_' . $alert->getId(), (string) $request->request->get('_csrf_token'))) {
+            $this->addFlash('error', 'Gecersiz alarm istegi. Sayfayi yenileyip tekrar deneyin.');
+            return $this->redirectToRoute('app_watchlist');
+        }
+
+        $alert->resetTrigger();
+        $em->flush();
+
+        $this->addFlash('success', $alert->getSymbol() . ' alarmi tekrar kuruldu.');
+
+        return $this->redirectToRoute('app_watchlist');
+    }
+
+    #[Route('/alerts/delete/{id}', name: 'app_watchlist_alert_delete', methods: ['POST'])]
+    public function deleteAlert(PriceAlert $alert, Request $request, EntityManagerInterface $em): Response
+    {
+        if (!$this->isCsrfTokenValid('watchlist_alert_delete_' . $alert->getId(), (string) $request->request->get('_csrf_token'))) {
+            $this->addFlash('error', 'Gecersiz alarm istegi. Sayfayi yenileyip tekrar deneyin.');
+            return $this->redirectToRoute('app_watchlist');
+        }
+
+        $symbol = $alert->getSymbol();
+        $em->remove($alert);
+        $em->flush();
+
+        $this->addFlash('success', $symbol . ' alarmi silindi.');
+
+        return $this->redirectToRoute('app_watchlist');
+    }
+
     #[Route('/api/live', name: 'api_watchlist_live', methods: ['GET'])]
     public function live(WatchlistItemRepository $repository): JsonResponse
     {
@@ -120,36 +219,6 @@ class WatchlistController extends AbstractController
      */
     private function marketDataPayload(array $symbols): array
     {
-        $symbols = array_values(array_unique(array_filter(array_map('strtoupper', $symbols))));
-        $marketDataMap = $this->yahooFinance->fetchBatchWithStatus($symbols);
-
-        $items = [];
-        foreach ($symbols as $symbol) {
-            $quoteStatus = $marketDataMap[$symbol] ?? null;
-            $data = $quoteStatus['data'] ?? null;
-            $lastSuccessful = $quoteStatus['lastSuccessful'] ?? null;
-            $dailyChange = $data ? $data->price - $data->previousClose : null;
-
-            $items[$symbol] = [
-                'symbol' => $symbol,
-                'price' => $data?->price,
-                'previousClose' => $data?->previousClose,
-                'dailyChange' => $dailyChange,
-                'dailyChangePercent' => $data?->changePercent(),
-                'volume' => $data?->volume,
-                'status' => $quoteStatus['status'] ?? ($data ? 'ok' : 'missing_price'),
-                'source' => $quoteStatus['source'] ?? null,
-                'httpStatus' => $quoteStatus['httpStatus'] ?? null,
-                'statusMessage' => $quoteStatus['message'] ?? null,
-                'isStale' => (bool) ($quoteStatus['isStale'] ?? false),
-                'lastSuccessfulPrice' => $lastSuccessful?->price,
-                'lastSuccessfulAt' => $lastSuccessful?->fetchedAt?->format(\DateTimeInterface::ATOM),
-            ];
-        }
-
-        return [
-            'fetchedAt' => (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
-            'items' => $items,
-        ];
+        return $this->priceSnapshot->payloadForSymbols($symbols);
     }
 }
