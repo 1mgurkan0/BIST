@@ -64,6 +64,10 @@ class Portfolio
 
     public function setSymbol(string $symbol): static
     {
+        $symbol = strtoupper(trim($symbol));
+        if (!preg_match('/^[A-Z0-9]{2,20}$/', $symbol)) {
+            throw new \InvalidArgumentException('Gecersiz BIST sembolu.');
+        }
         $this->symbol = $symbol;
         return $this;
     }
@@ -75,6 +79,9 @@ class Portfolio
 
     public function setLot(int $lot): static
     {
+        if ($lot <= 0) {
+            throw new \InvalidArgumentException('Lot sifirdan buyuk olmali.');
+        }
         $this->lot = $lot;
         return $this;
     }
@@ -86,6 +93,9 @@ class Portfolio
 
     public function setCostPrice(float $costPrice): static
     {
+        if ($costPrice <= 0.0) {
+            throw new \InvalidArgumentException('Maliyet sifirdan buyuk olmali.');
+        }
         $this->costPrice = $costPrice;
         return $this;
     }

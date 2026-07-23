@@ -1,0 +1,31 @@
+[Unit]
+Description=BAM BIST Messenger and Scheduler Worker
+After=network-online.target mysql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/bist_project
+Environment=APP_ENV=prod
+Environment=APP_DEBUG=0
+ExecStart=/usr/bin/php bin/console messenger:consume async scheduler_default --env=prod --no-debug --no-interaction --time-limit=3600 --memory-limit=256M --failure-limit=5 --sleep=1
+ExecReload=/usr/bin/php bin/console messenger:stop-workers --env=prod --no-debug
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+UMask=0027
+ReadWritePaths=/var/www/bist_project/var
+
+[Install]
+WantedBy=multi-user.target

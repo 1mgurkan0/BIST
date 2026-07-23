@@ -9,6 +9,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Lock\LockFactory;
 
 #[AsCommand(
     name: 'app:prices:refresh',
@@ -18,6 +19,7 @@ class PriceRefreshCommand extends Command
 {
     public function __construct(
         private readonly PriceSnapshotService $priceSnapshot,
+        private readonly LockFactory $lockFactory,
     ) {
         parent::__construct();
     }
@@ -30,6 +32,21 @@ class PriceRefreshCommand extends Command
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $lock = $this->lockFactory->createLock('tracked_price_refresh', 120.0, false);
+        if (!$lock->acquire()) {
+            (new SymfonyStyle($input, $output))->warning('Baska bir fiyat yenileme islemi halen calisiyor.');
+            return Command::SUCCESS;
+        }
+
+        try {
+            return $this->runRefresh($input, $output);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function runRefresh(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $dryRun = (bool) $input->getOption('dry-run');
@@ -61,15 +78,25 @@ class PriceRefreshCommand extends Command
         }
 
         $io->table(['Sembol', 'Fiyat', 'Gunluk %', 'Veri', 'Kaynak'], $rows);
-        $io->success(sprintf(
+        $statusMessage = (string) ($payload['message'] ?? 'Snapshot kontrol edildi.');
+        $writeMessage = $dryRun ? ' Dry-run: snapshot yazilmadi.' : ' ' . $statusMessage;
+
+        $message = sprintf(
             '%d sembol kontrol edildi. Taze: %d, stale: %d, eksik: %d, 429: %d.%s',
             (int) ($summary['total'] ?? count($rows)),
             (int) ($summary['fresh'] ?? 0),
             (int) ($summary['stale'] ?? 0),
             (int) ($summary['missing'] ?? 0),
             (int) ($summary['rateLimited'] ?? 0),
-            $dryRun ? ' Dry-run: snapshot yazilmadi.' : ' Snapshot guncellendi.'
-        ));
+            $writeMessage
+        );
+
+        if (($payload['status'] ?? null) === 'failed') {
+            $io->error($message);
+            return Command::FAILURE;
+        }
+
+        ($payload['status'] ?? null) === 'ok' ? $io->success($message) : $io->warning($message);
 
         return Command::SUCCESS;
     }

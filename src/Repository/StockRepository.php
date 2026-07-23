@@ -43,4 +43,15 @@ class StockRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    public function findLatest(string $symbol): ?Stock
+    {
+        return $this->createQueryBuilder('s')
+            ->andWhere('s.symbol = :symbol')
+            ->setParameter('symbol', strtoupper(trim($symbol)))
+            ->orderBy('s.createdAt', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
 }

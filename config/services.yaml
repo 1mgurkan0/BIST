@@ -4,7 +4,11 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    redis_url: 'redis://127.0.0.1:6379'
+    bist_scan_symbols: 'AEFES,AKBNK,AKSEN,ALARK,ASELS,ASTOR,BIMAS,BRSAN,BTCIM,CANTE,CCOLA,CIMSA,DSTKF,ECILC,EFOR,EKGYO,ENKAI,EREGL,FROTO,GARAN,GLRMK,GUBRF,HALKB,HEKTS,ISCTR,KCHOL,KONTR,KRDMD,KTLEV,KUYAS,MGROS,MIATK,OYAKC,PASEU,PETKM,PGSUS,SAHOL,SASA,SISE,TAVHL,TCELL,THYAO,TOASO,TRALT,TRMET,TTKOM,TUPRS,TURSG,ULKER,VAKBN,YKBNK'
     gemini.api_key: '%env(GEMINI_API_KEY)%'
+    gemini.model: '%env(default:default_gemini_model:GEMINI_MODEL)%'
+    default_gemini_model: 'gemini-2.5-flash'
     telegram.token: '%env(TELEGRAM_BOT_TOKEN)%'
     telegram.chat_id: '%env(TELEGRAM_CHAT_ID)%'
 services:
@@ -24,10 +28,14 @@ services:
   App\Service\GeminiService:
     arguments:
       $Geminiapikey: '%gemini.api_key%'
+      $model: '%gemini.model%'
 
   App\Service\TelegramService:
     arguments:
       $Telegramtoken: '%telegram.token%'
       $Telegramchatid: '%telegram.chat_id%'
+  App\Service\BistUniverseService:
+    arguments:
+      $configuredSymbols: '%env(default:bist_scan_symbols:BIST_SCAN_SYMBOLS)%'
   # add more service definitions when explicit configuration is needed
   # please note that last definitions always *replace* previous ones

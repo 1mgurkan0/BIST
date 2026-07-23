@@ -81,7 +81,11 @@ class PriceAlert
 
     public function setSymbol(string $symbol): static
     {
-        $this->symbol = strtoupper(trim($symbol));
+        $symbol = strtoupper(trim($symbol));
+        if (!preg_match('/^[A-Z0-9]{2,20}$/', $symbol)) {
+            throw new \InvalidArgumentException('Gecersiz BIST sembolu.');
+        }
+        $this->symbol = $symbol;
         return $this;
     }
 
@@ -107,7 +111,10 @@ class PriceAlert
 
     public function setTargetValue(float $targetValue): static
     {
-        $this->targetValue = abs($targetValue);
+        if ($targetValue <= 0.0) {
+            throw new \InvalidArgumentException('Alarm hedefi sifirdan buyuk olmali.');
+        }
+        $this->targetValue = $targetValue;
         return $this;
     }
 
@@ -156,7 +163,7 @@ class PriceAlert
     public function setNote(?string $note): static
     {
         $note = $note === null ? null : trim($note);
-        $this->note = $note === '' ? null : $note;
+        $this->note = $note === '' ? null : mb_substr($note, 0, 500);
         return $this;
     }
 

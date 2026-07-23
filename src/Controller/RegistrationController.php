@@ -14,7 +14,7 @@ use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Annotation\Route;
 
 class RegistrationController extends AbstractController
@@ -29,7 +29,7 @@ class RegistrationController extends AbstractController
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
         EntityManagerInterface $em,
-        RateLimiterFactory $registrationLimiter,
+        RateLimiterFactoryInterface $registrationLimiter,
     ): Response {
         if ($this->getUser()) {
             return $this->redirectToRoute('market');
@@ -97,7 +97,7 @@ class RegistrationController extends AbstractController
     public function verifyCode(
         Request $request,
         EntityManagerInterface $em,
-        RateLimiterFactory $verifyCodeLimiter,
+        RateLimiterFactoryInterface $verifyCodeLimiter,
     ): Response {
         $pending = $request->getSession()->get('pending_user');
 
@@ -177,7 +177,7 @@ class RegistrationController extends AbstractController
     #[Route('/verify/resend', name: 'app_resend_code', methods: ['POST'])]
     public function resendCode(
         Request $request,
-        RateLimiterFactory $resendVerificationLimiter,
+        RateLimiterFactoryInterface $resendVerificationLimiter,
     ): Response {
         $pending = $request->getSession()->get('pending_user');
 

@@ -9,7 +9,7 @@
     <title>BAM | Portföy Yönetimi</title>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #121826; color: #f3f4f6; }
-        .card-custom { background-color: #1f2937; border: 1px solid #374151; border-radius: 1rem; }
+        .card-custom { background-color: #1f2937; border: 1px solid #374151; border-radius: 0.5rem; }
         .text-yellow-custom { color: #eab308; }
         .btn-yellow-custom { background-color: #ca8a04; color: white; border: none; }
         .btn-yellow-custom:hover { background-color: #a16207; color: white; }
@@ -23,7 +23,7 @@
             text-transform: uppercase; font-size: 0.85rem; border-bottom-width: 2px;
         }
         .table-custom tbody tr:hover { background-color: rgba(255,255,255,0.05); }
-        .tracking-widest { letter-spacing: 0.1em; }
+        .tracking-widest { letter-spacing: 0; }
         .chart-container { position: relative; height: 280px; }
         .live-dot {
             display: inline-block; width: 8px; height: 8px;
@@ -217,9 +217,12 @@
                             </td>
                             <td class="text-center">
                                 {% if item.sentimentScore is null %}
-                                    <a href="/portfolio/analyze/{{ item.id }}" class="btn btn-sm btn-outline-info rounded-pill fw-bold shadow-sm">
-                                        <i class="bi bi-robot text-info"></i> Analiz Ettir
-                                    </a>
+                                    <form method="post" action="{{ path('portfolio_analyze', {id: item.id}) }}" class="d-inline">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('portfolio_analyze_' ~ item.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-info fw-bold shadow-sm">
+                                            <i class="bi bi-robot text-info"></i> Analiz Ettir
+                                        </button>
+                                    </form>
                                 {% else %}
                                     {% set s = item.sentimentScore %}
                                     {% if s >= 70 %}{% set bc='bg-success' %}{% set tc='text-success' %}{% set lbl='Pozitif' %}
@@ -235,23 +238,28 @@
                                         <i class="bi bi-robot"></i> {{ lbl }} ({{ s }})
                                         <i class="bi bi-eye-fill ms-1"></i>
                                     </span>
-                                    <a href="/portfolio/analyze/{{ item.id }}" class="btn btn-sm btn-link text-secondary p-0 ms-2" title="Yeniden Analiz Et">
-                                        <i class="bi bi-arrow-clockwise"></i>
-                                    </a>
+                                    <form method="post" action="{{ path('portfolio_analyze', {id: item.id}) }}" class="d-inline ms-2">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('portfolio_analyze_' ~ item.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-link text-secondary p-0" title="Yeniden analiz et" aria-label="Yeniden analiz et">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                    </form>
                                 {% endif %}
                             </td>
                             <td class="text-center pe-4">
                                 <button type="button" class="btn btn-sm btn-outline-warning border-0"
                                         data-bs-toggle="modal" data-bs-target="#editStockModal"
                                         data-id="{{ item.id }}" data-symbol="{{ item.symbol }}"
-                                        data-lot="{{ item.lot }}" data-cost="{{ item.costPrice }}">
+                                        data-lot="{{ item.lot }}" data-cost="{{ item.costPrice }}"
+                                        data-csrf-token="{{ csrf_token('portfolio_edit_' ~ item.id) }}">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
-                                <a href="{{ path('portfolio_delete', {'id': item.id}) }}"
-                                   class="btn btn-sm btn-outline-danger border-0"
-                                   onclick="return confirm('Bu hisseyi silmek istediğinize emin misiniz?')">
-                                    <i class="bi bi-trash"></i>
-                                </a>
+                                <form method="post" action="{{ path('portfolio_delete', {id: item.id}) }}" class="d-inline" onsubmit="return confirm('Bu hisseyi silmek istediğinize emin misiniz?')">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('portfolio_delete_' ~ item.id) }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Sil" aria-label="Sil">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     {% endfor %}
@@ -269,6 +277,7 @@
                     </div>
                     <div class="modal-body">
                         <form id="editStockForm" method="POST" action="">
+                            <input type="hidden" name="_csrf_token" id="editCsrfToken" value="">
                             <div class="row">
                                 <div class="col-6 mb-3">
                                     <label class="form-label text-secondary small fw-bold tracking-widest">YENİ LOT MİKTARI</label>
@@ -300,6 +309,7 @@
             </div>
             <div class="modal-body">
                 <form action="{{ path('app_portfolio_add') }}" method="POST">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('portfolio_add') }}">
                     <div class="mb-3">
                         <label class="form-label text-secondary small fw-bold tracking-widest">HİSSE KODU</label>
                         <input type="text" name="symbol" class="form-control bg-dark border-secondary text-white text-uppercase" required>
@@ -337,6 +347,7 @@
                 document.getElementById('editLotInput').value            = btn.getAttribute('data-lot');
                 document.getElementById('editCostInput').value           = btn.getAttribute('data-cost');
                 document.getElementById('editStockForm').action          = '/portfolio/edit/' + btn.getAttribute('data-id');
+                document.getElementById('editCsrfToken').value           = btn.getAttribute('data-csrf-token');
             });
         }
 

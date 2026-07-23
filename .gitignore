@@ -17,6 +17,7 @@
 ###> symfony/asset-mapper ###
 /public/assets/
 /assets/vendor/
+/config/reference.php
 ###< symfony/asset-mapper ###
 
 .env

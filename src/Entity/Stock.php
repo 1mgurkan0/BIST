@@ -6,6 +6,8 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
+#[ORM\Table(name: 'stock')]
+#[ORM\Index(name: 'IDX_STOCK_SYMBOL_CREATED', columns: ['symbol', 'created_at'])]
 class Stock
 {
     #[ORM\Id]
@@ -114,14 +116,14 @@ class Stock
         return $this;
     }
 
-    public function getVolume(): ?string
+    public function getVolume(): ?int
     {
         return $this->volume;
     }
 
-    public function setVolume(string $volume): static
+    public function setVolume(int $volume): static
     {
-        $this->volume = $volume;
+        $this->volume = max(0, $volume);
 
         return $this;
     }

@@ -99,7 +99,15 @@ class KapNews
 
     public function setStockCodes(array $stockCodes): static
     {
-        $this->stockCodes = array_unique($stockCodes);
+        $normalized = [];
+        foreach ($stockCodes as $stockCode) {
+            $stockCode = strtoupper(trim((string) $stockCode));
+            if (preg_match('/^[A-Z0-9]{2,20}$/', $stockCode)) {
+                $normalized[$stockCode] = true;
+            }
+        }
+
+        $this->stockCodes = array_keys($normalized);
         return $this;
     }
 
@@ -132,7 +140,7 @@ class KapNews
 
     public function setSentimentScore(?int $sentimentScore): static
     {
-        $this->sentimentScore = $sentimentScore;
+        $this->sentimentScore = $sentimentScore === null ? null : max(-100, min(100, $sentimentScore));
         return $this;
     }
 

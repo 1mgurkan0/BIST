@@ -4,7 +4,14 @@ framework:
     #csrf_protection: true
 
     # Note that the session will be started ONLY if you read or write from it.
-    session: true
+    session:
+        cookie_httponly: true
+        cookie_samesite: lax
+        cookie_secure: auto
+        gc_maxlifetime: 604800
+
+    php_errors:
+        log: true
 
     #esi: true
     #fragments: true

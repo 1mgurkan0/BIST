@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="tr" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BAM | AI Rapor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="icon" style="border-radius: 20px" type="image/png" href="{{ asset('images/logo/bam-logo.ico') }}?v=1">
+    <link rel="stylesheet" href="{{ asset('css/bam-personal.css') }}?v=1">
+    <style>
+        body { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #121826; color: #f3f4f6; }
+        .text-yellow-custom { color: #eab308; }
+        .tracking-widest { letter-spacing: 0; }
+        .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+        .report-card { background: #1f2937; border: 1px solid #374151; border-radius: 0.5rem; }
+        .report-score { width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; background: #111827; border: 1px solid #374151; }
+        .report-score strong { font-size: 1.45rem; line-height: 1; }
+        .report-meta { color: #9ca3af; font-size: 0.78rem; }
+        .report-section { background: #111827; border: 1px solid #263244; border-radius: 0.5rem; padding: 0.85rem; }
+        .report-section h6 { color: #eab308; font-size: 0.74rem; letter-spacing: 0; text-transform: uppercase; margin-bottom: 0.5rem; }
+        .score-good { color: #22c55e; }
+        .score-mid { color: #eab308; }
+        .score-risk { color: #ef4444; }
+        .chip { display: inline-flex; align-items: center; gap: 0.35rem; border: 1px solid #374151; border-radius: 999px; padding: 0.25rem 0.65rem; font-size: 0.75rem; color: #d1d5db; background: #111827; }
+        .report-filters { display: flex; gap: 0.35rem; overflow-x: auto; padding-bottom: 0.2rem; }
+        .report-filter { color: #9ca3af; text-decoration: none; border-bottom: 2px solid transparent; padding: 0.55rem 0.75rem; white-space: nowrap; font-size: 0.82rem; font-weight: 700; }
+        .report-filter:hover, .report-filter.active { color: #facc15; border-bottom-color: #eab308; }
+        .technical-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+        .technical-metric { min-width: 0; padding: 0.55rem; border-left: 2px solid #374151; }
+        .technical-metric span { display: block; color: #9ca3af; font-size: 0.68rem; text-transform: uppercase; }
+        .technical-metric strong { display: block; font-size: 0.82rem; overflow-wrap: anywhere; }
+        .history-bars { display: flex; align-items: end; gap: 0.35rem; height: 58px; padding-top: 0.4rem; }
+        .history-bar { flex: 1; min-width: 10px; max-width: 30px; background: #eab308; border-radius: 2px 2px 0 0; opacity: 0.75; }
+        .history-bar:last-child { opacity: 1; background: #22c55e; }
+        .delta-up { color: #22c55e; }
+        .delta-down { color: #ef4444; }
+        @media (max-width: 420px) { .technical-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    </style>
+</head>
+<body class="bam-page">
+
+{% include 'partials/_dashboard_header.html.twig' %}
+
+<main class="container bam-shell py-4 py-lg-5">
+    <section class="bam-card p-4 mb-4">
+        <div class="bam-toolbar">
+            <div>
+                <div class="bam-eyebrow">{{ reportScope == 'opportunity' ? 'BIST genis evren on eleme' : 'Gun sonu karar destegi' }}</div>
+                <h2 class="m-0 fw-bold tracking-widest text-yellow-custom">{{ reportScope == 'opportunity' ? 'FIRSAT RADARI' : 'AI RAPOR' }}</h2>
+                <div class="bam-muted small mt-1">
+                    {% if latestGeneratedAt %}
+                        Son rapor: {{ latestGeneratedAt|date('d.m.Y H:i') }}
+                    {% else %}
+                        Rapor bekleniyor
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="report-card p-3 h-100">
+                <div class="report-meta mb-1">Toplam</div>
+                <div class="h3 fw-bold mb-0">{{ stats.total }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="report-card p-3 h-100">
+                <div class="report-meta mb-1">Takip et</div>
+                <div class="h3 fw-bold score-good mb-0">{{ stats.follow }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="report-card p-3 h-100">
+                <div class="report-meta mb-1">Bekle</div>
+                <div class="h3 fw-bold score-mid mb-0">{{ stats.wait }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="report-card p-3 h-100">
+                <div class="report-meta mb-1">Riskli</div>
+                <div class="h3 fw-bold score-risk mb-0">{{ stats.risky }}</div>
+            </div>
+        </div>
+    </div>
+
+    {% set filterOptions = {
+        all: 'Tum raporlar',
+        high: 'Yuksek skor',
+        risky: 'Riskli / stale',
+        kap: 'KAP etkili',
+        portfolio: 'Portfoy',
+        opportunity: 'Firsat radari'
+    } %}
+    <nav class="report-filters mb-4" aria-label="AI rapor filtreleri">
+        {% for key, label in filterOptions %}
+            <a class="report-filter {{ activeFilter == key ? 'active' : '' }}" href="{{ path('app_ai_reports', {filter: key}) }}">
+                {{ label }}
+            </a>
+        {% endfor %}
+    </nav>
+
+    {% if reports is empty %}
+        <section class="report-card p-5 text-center">
+            <i class="bi bi-clipboard2-pulse display-5 text-secondary d-block mb-3"></i>
+            <h5 class="fw-bold mb-1">AI raporu yok</h5>
+            <div class="text-secondary">Bu filtreye uyan gun sonu raporu bulunamadi.</div>
+        </section>
+    {% else %}
+        <div class="report-grid">
+            {% for report in reports %}
+                {% set scoreClass = report.score >= 70 ? 'score-good' : (report.score <= 40 ? 'score-risk' : 'score-mid') %}
+                {% set scoreChange = scoreChanges[report.symbol] is defined ? scoreChanges[report.symbol] : null %}
+                {% set history = histories[report.symbol]|default([]) %}
+                {% set tech = report.technicalSnapshot %}
+                {% set sma = tech.sma|default({}) %}
+                {% set macd = tech.macd|default({}) %}
+                {% set returns = tech.returns|default({}) %}
+                <article class="report-card p-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <h4 class="fw-bold mb-0">{{ report.symbol }}</h4>
+                                {% if report.portfolio %}
+                                    <span class="chip"><i class="bi bi-briefcase"></i> Portfoy</span>
+                                {% endif %}
+                                {% if report.watchlist %}
+                                    <span class="chip"><i class="bi bi-radar"></i> Takip</span>
+                                {% endif %}
+                                {% if report.reportScope == 'opportunity' %}
+                                    <span class="chip"><i class="bi bi-bullseye"></i> Aday</span>
+                                {% endif %}
+                            </div>
+                            <div class="report-meta">
+                                {{ report.createdAt ? report.createdAt|date('d.m.Y H:i') : '-' }}
+                                {% if report.price is not null %}
+                                    &middot; {{ report.price|number_format(2, ',', '.') }} TL
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="report-score {{ scoreClass }}">
+                            <strong>{{ report.score }}</strong>
+                            {% if scoreChange is not null %}
+                                <small class="{{ scoreChange > 0 ? 'delta-up' : (scoreChange < 0 ? 'delta-down' : 'report-meta') }}">
+                                    {{ scoreChange > 0 ? '+' : '' }}{{ scoreChange }}
+                                </small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="chip">{{ report.trendLabelText() }}</span>
+                        <span class="chip">{{ report.decisionLabelText() }}</span>
+                        <span class="chip">Guven: {{ report.confidence }}</span>
+                        <span class="chip">KAP: {{ report.kapNewsIds|length }}</span>
+                        <span class="chip {{ report.analysisStatus starts with 'fallback_' ? 'text-danger' : '' }}">AI: {{ report.analysisStatus }}</span>
+                        {% if report.priceStale %}
+                            <span class="chip text-danger">Veri: {{ report.dataStatus }}</span>
+                        {% endif %}
+                        {% if report.historyStatus != 'ok' %}
+                            <span class="chip text-danger">Tarihce: {{ report.historyStatus }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if report.reportScope == 'opportunity' and not report.watchlist %}
+                        <form method="post" action="{{ path('app_watchlist_add') }}" class="mb-3">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('watchlist_add') }}">
+                            <input type="hidden" name="symbol" value="{{ report.symbol }}">
+                            <input type="hidden" name="note" value="Firsat radarindan eklendi">
+                            <button type="submit" class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-plus-circle me-1"></i> Takibe al
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    <div class="d-grid gap-2">
+                        {% if tech.status|default('missing') == 'ok' %}
+                            <div class="report-section">
+                                <h6>Teknik Gorunum</h6>
+                                <div class="technical-grid">
+                                    <div class="technical-metric"><span>Trend</span><strong>{{ tech.trend|default('-') }}</strong></div>
+                                    <div class="technical-metric"><span>RSI 14</span><strong>{{ tech.rsi14 is not null ? tech.rsi14|number_format(2, ',', '.') : '-' }}</strong></div>
+                                    <div class="technical-metric"><span>MACD Hist.</span><strong>{{ macd.histogram is defined and macd.histogram is not null ? macd.histogram|number_format(2, ',', '.') : '-' }}</strong></div>
+                                    <div class="technical-metric"><span>SMA 20</span><strong>{{ sma['20'] is defined and sma['20'] is not null ? sma['20']|number_format(2, ',', '.') : '-' }}</strong></div>
+                                    <div class="technical-metric"><span>SMA 50</span><strong>{{ sma['50'] is defined and sma['50'] is not null ? sma['50']|number_format(2, ',', '.') : '-' }}</strong></div>
+                                    <div class="technical-metric"><span>3 Ay</span><strong>{{ returns['3m'] is defined and returns['3m'] is not null ? returns['3m']|number_format(2, ',', '.') ~ '%' : '-' }}</strong></div>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        {% if history|length > 1 %}
+                            <div class="report-section">
+                                <h6>Son AI Skorlari</h6>
+                                <div class="history-bars" aria-label="{{ report.symbol }} skor gecmisi">
+                                    {% for point in history|reverse %}
+                                        <span class="history-bar" style="height: {{ point.score > 4 ? point.score : 4 }}%" title="{{ point.createdAt|date('d.m H:i') }} - {{ point.score }}"></span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <div class="report-section">
+                            <h6>Gunluk</h6>
+                            <div class="small lh-base">{{ report.dailyComment }}</div>
+                        </div>
+                        <div class="report-section">
+                            <h6>Kisa Vade</h6>
+                            <div class="small lh-base">{{ report.shortTerm }}</div>
+                        </div>
+                        <div class="report-section">
+                            <h6>Orta Vade</h6>
+                            <div class="small lh-base">{{ report.mediumTerm }}</div>
+                        </div>
+                        <div class="report-section">
+                            <h6>Uzun Vade</h6>
+                            <div class="small lh-base">{{ report.longTerm }}</div>
+                        </div>
+                        <div class="report-section">
+                            <h6>KAP Etkisi</h6>
+                            <div class="small lh-base">{{ report.kapImpact }}</div>
+                        </div>
+                        <div class="report-section">
+                            <h6>Risk</h6>
+                            <div class="small lh-base">{{ report.riskSummary }}</div>
+                        </div>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% endif %}
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

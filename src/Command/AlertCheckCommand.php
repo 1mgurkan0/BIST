@@ -14,6 +14,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Lock\LockFactory;
 
 #[AsCommand(
     name: 'app:alerts:check',
@@ -27,6 +28,7 @@ class AlertCheckCommand extends Command
         private readonly TelegramService $telegramService,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
+        private readonly LockFactory $lockFactory,
     ) {
         parent::__construct();
     }
@@ -40,6 +42,21 @@ class AlertCheckCommand extends Command
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $lock = $this->lockFactory->createLock('price_alert_check', 120.0, false);
+        if (!$lock->acquire()) {
+            (new SymfonyStyle($input, $output))->warning('Baska bir alarm kontrolu halen calisiyor.');
+            return Command::SUCCESS;
+        }
+
+        try {
+            return $this->runAlertCheck($input, $output);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function runAlertCheck(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $dryRun = (bool) $input->getOption('dry-run');
@@ -87,29 +104,9 @@ class AlertCheckCommand extends Command
                 $shouldTrigger = $this->shouldTrigger($alert, $price, $changePercent);
 
                 if ($status !== 'ok' || $isStale) {
-                    if ($shouldTrigger) {
-                        $result = $dryRun
-                            ? 'Stale veride tetiklenecek'
-                            : ($sendTelegram ? 'Stale tetiklendi, Telegram bekliyor' : 'Stale tetiklendi');
-                        $triggered++;
-
-                        if (!$dryRun) {
-                            $alert->markTriggered($price, $status, is_int($httpStatus) ? $httpStatus : null);
-                            if ($sendTelegram) {
-                                $telegramQueue[] = [
-                                    'alert' => $alert,
-                                    'price' => $price,
-                                    'changePercent' => $changePercent,
-                                    'quoteStatus' => $status,
-                                    'httpStatus' => is_int($httpStatus) ? $httpStatus : null,
-                                    'isStale' => $isStale,
-                                    'rowIndex' => count($rows),
-                                ];
-                            }
-                        }
-                    } else {
-                        $result = 'Stale veri, bekliyor';
-                    }
+                    $result = $shouldTrigger
+                        ? 'Stale veri, tetiklenmedi'
+                        : 'Stale veri, bekliyor';
 
                     if (!$dryRun) {
                         $alert->markChecked($price, $status, is_int($httpStatus) ? $httpStatus : null);
@@ -154,8 +151,6 @@ class AlertCheckCommand extends Command
         }
 
         if (!$dryRun) {
-            $this->em->flush();
-
             foreach ($telegramQueue as $telegramItem) {
                 $telegramOk = $this->sendTelegramAlert(
                     $telegramItem['alert'],
@@ -171,9 +166,18 @@ class AlertCheckCommand extends Command
                     $rows[$telegramItem['rowIndex']][6] = 'Tetiklendi, Telegram OK';
                 } else {
                     $telegramFailed++;
-                    $rows[$telegramItem['rowIndex']][6] = 'Tetiklendi, Telegram hata';
+                    $telegramItem['alert']
+                        ->resetTrigger()
+                        ->markChecked(
+                            $telegramItem['price'],
+                            $telegramItem['quoteStatus'],
+                            $telegramItem['httpStatus']
+                        );
+                    $rows[$telegramItem['rowIndex']][6] = 'Telegram hata, alarm aktif';
                 }
             }
+
+            $this->em->flush();
         }
 
         $io->table(
@@ -194,13 +198,19 @@ class AlertCheckCommand extends Command
             ? sprintf(' Telegram: %d gonderildi, %d hata.', $telegramSent, $telegramFailed)
             : ' Telegram kapali.';
 
-        $io->success(sprintf(
+        $summaryMessage = sprintf(
             '%d alarm kontrol edildi. %d alarm %s.',
             count($alerts),
             $triggered,
             $dryRun ? 'tetiklenecek durumda' : 'tetiklendi'
-        ) . $telegramSummary);
+        ) . $telegramSummary;
 
+        if ($telegramFailed > 0) {
+            $io->error($summaryMessage);
+            return Command::FAILURE;
+        }
+
+        $io->success($summaryMessage);
         return Command::SUCCESS;
     }
 
@@ -244,7 +254,7 @@ class AlertCheckCommand extends Command
     ): bool
     {
         $note = $alert->getNote();
-        $noteLine = $note === null ? '' : "\nNot: " . $this->escapeTelegramHtml($note);
+        $noteLine = $note === null ? '' : "\nNot: " . $this->escapeTelegramHtml(mb_substr($note, 0, 500));
         $dataStatusLine = $this->telegramDataStatusLine($quoteStatus, $httpStatus, $isStale);
 
         $message = sprintf(

@@ -11,11 +11,16 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class YahooFinanceService
 {
     private const BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=1d';
+    private const BATCH_URL = 'https://query1.finance.yahoo.com/v7/finance/spark?symbols=%s&range=1d&interval=5m';
     private const SYMBOL_TTL = 60;
     private const LAST_SUCCESS_TTL = 604800;
     private const BLOCK_DURATION = 600;
-    private const REQUEST_DELAY = 2_200_000;
+    private const BATCH_BLOCK_DURATION = 45;
+    private const BATCH_BLOCK_KEY = 'yahoo.block.quote_batch';
+    private const MAX_BATCH_SIZE = 50;
+    private const REQUEST_DELAY = 8_000_000;
     private const MAX_RETRY = 3;
+    private const BATCH_CURSOR_KEY = 'yahoo.batch.cursor';
 
     private const USER_AGENTS = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -58,25 +63,22 @@ class YahooFinanceService
      */
     public function fetchOneWithStatus(string $symbol): array
     {
-        $symbol = $this->normalizeSymbol($symbol);
+        $normalizedSymbol = $this->normalizeSymbol($symbol);
 
-        $cached = $this->getFromCache($symbol);
+        $cached = $this->getFromCache($normalizedSymbol);
         if ($cached !== null) {
-            return $this->buildStatus($symbol, $cached, 'cache', 'ok');
+            return $this->buildStatus($normalizedSymbol, $cached, 'cache', 'ok');
         }
 
-        if ($this->isBlocked($symbol)) {
-            $this->logger->notice('Symbol is in Yahoo 429 block, using last successful quote.', ['symbol' => $symbol]);
+        $bareSymbol = $this->bareSymbol($normalizedSymbol);
+        $results = $this->fetchBatchWithStatus([$bareSymbol]);
 
-            return $this->buildStatusFromLast(
-                $symbol,
-                'rate_limited',
-                429,
-                'Yahoo 429 limiti aktif. Son basarili veri gosteriliyor.'
-            );
-        }
-
-        return $this->fetchFromApiWithStatus($symbol);
+        return $results[$bareSymbol] ?? $this->buildStatusFromLast(
+            $normalizedSymbol,
+            'missing_price',
+            null,
+            'Yahoo sembol icin fiyat dondurmedi. Son basarili veri gosteriliyor.'
+        );
     }
 
     /**
@@ -134,6 +136,29 @@ class YahooFinanceService
             return $results;
         }
 
+        foreach (array_chunk($missing, self::MAX_BATCH_SIZE) as $chunk) {
+            $batchResults = $this->fetchBatchFromApiWithStatus($chunk);
+            foreach ($batchResults as $symbol => $status) {
+                $results[$symbol] = $status;
+            }
+        }
+
+        $missing = array_values(array_filter(
+            $missing,
+            fn(string $symbol): bool => !isset($results[$this->bareSymbol($symbol)])
+        ));
+
+        if (empty($missing)) {
+            $this->logger->info('Yahoo batch quote completed.', [
+                'requested' => count($seen),
+                'returned' => count($results),
+            ]);
+
+            return $results;
+        }
+
+        $missing = $this->rotateBatch($missing);
+
         $this->logger->info('Symbols will be fetched from Yahoo.', [
             'count' => count($missing),
             'symbols' => implode(', ', $missing),
@@ -170,6 +195,119 @@ class YahooFinanceService
         ]);
 
         return $results;
+    }
+
+    /**
+     * @param string[] $normalizedSymbols
+     * @return array<string, array<string, mixed>>
+     */
+    private function fetchBatchFromApiWithStatus(array $normalizedSymbols): array
+    {
+        if (empty($normalizedSymbols)) {
+            return [];
+        }
+
+        if ($this->isBatchBlocked()) {
+            $results = [];
+            foreach ($normalizedSymbols as $symbol) {
+                $results[$this->bareSymbol($symbol)] = $this->buildStatusFromLast(
+                    $symbol,
+                    'rate_limited',
+                    429,
+                    'Yahoo batch limiti kisa sure once tetiklendi. Son basarili veri gosteriliyor.'
+                );
+            }
+
+            return $results;
+        }
+
+        $lock = $this->lockFactory->createLock('yahoo_batch_quote', 20.0, false);
+        if (!$lock->acquire()) {
+            $results = [];
+            foreach ($normalizedSymbols as $symbol) {
+                $results[$this->bareSymbol($symbol)] = $this->buildStatusFromLast(
+                    $symbol,
+                    'locked',
+                    null,
+                    'Baska bir Yahoo batch istegi suruyor. Son basarili veri gosteriliyor.'
+                );
+            }
+
+            return $results;
+        }
+
+        try {
+            $encodedSymbols = rawurlencode(implode(',', $normalizedSymbols));
+            $response = $this->client->request('GET', sprintf(self::BATCH_URL, $encodedSymbols), [
+                'headers' => [
+                    'User-Agent' => 'Mozilla/5.0',
+                    'Accept' => 'application/json',
+                ],
+                'timeout' => 15,
+            ]);
+            $httpStatus = $response->getStatusCode();
+
+            if ($httpStatus === 429) {
+                $this->logger->warning('Yahoo batch quote returned 429.', [
+                    'symbols' => implode(', ', $normalizedSymbols),
+                ]);
+                $this->blockBatch();
+                $results = [];
+                foreach ($normalizedSymbols as $symbol) {
+                    $results[$this->bareSymbol($symbol)] = $this->buildStatusFromLast(
+                        $symbol,
+                        'rate_limited',
+                        429,
+                        'Yahoo batch istegine 429 verdi. Son basarili veri gosteriliyor.'
+                    );
+                }
+
+                return $results;
+            }
+
+            if ($httpStatus !== 200) {
+                $this->logger->warning('Yahoo batch quote returned unexpected status.', ['status' => $httpStatus]);
+                return [];
+            }
+
+            $payload = $response->toArray(false);
+            $entries = is_array($payload['spark']['result'] ?? null) ? $payload['spark']['result'] : [];
+            $requested = array_fill_keys($normalizedSymbols, true);
+            $results = [];
+
+            foreach ($entries as $entry) {
+                if (!is_array($entry) || !is_string($entry['symbol'] ?? null)) {
+                    continue;
+                }
+
+                try {
+                    $symbol = $this->normalizeSymbol($entry['symbol']);
+                } catch (\InvalidArgumentException) {
+                    continue;
+                }
+
+                if (!isset($requested[$symbol])) {
+                    continue;
+                }
+
+                $chart = $entry['response'][0] ?? null;
+                $dto = is_array($chart) ? $this->dtoFromChart($symbol, $chart) : null;
+                if (!$dto instanceof MarketDataDto || !$dto->isValid()) {
+                    continue;
+                }
+
+                $this->saveToCache($symbol, $dto);
+                $this->clearQuoteBlocks($symbol);
+                $results[$dto->symbol] = $this->buildStatus($symbol, $dto, 'api_batch', 'ok');
+            }
+
+            return $results;
+        } catch (\Throwable $e) {
+            $this->logger->warning('Yahoo batch quote request failed.', ['error' => $e->getMessage()]);
+            return [];
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
@@ -282,21 +420,18 @@ class YahooFinanceService
                 }
 
                 $result = $data['chart']['result'][0];
-                $meta = $result['meta'] ?? [];
-                $quote = $result['indicators']['quote'][0] ?? [];
-                $closeValues = $quote['close'] ?? [];
-                $last = max(count($closeValues) - 1, 0);
+                $dto = $this->dtoFromChart($symbol, $result);
 
-                $dto = new MarketDataDto(
-                    symbol: $this->bareSymbol($symbol),
-                    price: (float) ($meta['regularMarketPrice'] ?? ($closeValues[$last] ?? 0.0)),
-                    open: (float) (($quote['open'][$last] ?? null) ?? 0.0),
-                    high: (float) (($quote['high'][$last] ?? null) ?? 0.0),
-                    low: (float) (($quote['low'][$last] ?? null) ?? 0.0),
-                    previousClose: (float) ($meta['chartPreviousClose'] ?? 0.0),
-                    volume: (int) (($quote['volume'][$last] ?? null) ?? 0),
-                    fetchedAt: new \DateTimeImmutable(),
-                );
+                if (!$dto instanceof MarketDataDto || !$dto->isValid()) {
+                    $this->logger->notice('Yahoo returned a quote without a valid price.', ['symbol' => $symbol]);
+
+                    return $this->buildStatusFromLast(
+                        $symbol,
+                        'invalid_quote',
+                        null,
+                        'Yahoo gecerli bir fiyat dondurmedi. Son basarili veri gosteriliyor.'
+                    );
+                }
 
                 $this->saveToCache($symbol, $dto);
 
@@ -404,6 +539,60 @@ class YahooFinanceService
         }
     }
 
+    private function blockBatch(): void
+    {
+        try {
+            $item = $this->cache->getItem(self::BATCH_BLOCK_KEY);
+            $item->set(true)->expiresAfter(self::BATCH_BLOCK_DURATION);
+            $this->cache->save($item);
+        } catch (\Throwable) {
+        }
+    }
+
+    private function isBatchBlocked(): bool
+    {
+        try {
+            return $this->cache->getItem(self::BATCH_BLOCK_KEY)->isHit();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function clearQuoteBlocks(string $symbol): void
+    {
+        try {
+            $this->cache->delete(self::BATCH_BLOCK_KEY);
+            $this->cache->delete($this->blockKey($symbol));
+        } catch (\Throwable) {
+        }
+    }
+
+    /**
+     * Rotating the first symbol prevents a rate limit from starving symbols
+     * that happen to appear later in every scheduled batch.
+     *
+     * @param string[] $symbols
+     * @return string[]
+     */
+    private function rotateBatch(array $symbols): array
+    {
+        if (count($symbols) < 2) {
+            return $symbols;
+        }
+
+        try {
+            $item = $this->cache->getItem(self::BATCH_CURSOR_KEY);
+            $cursor = $item->isHit() && is_numeric($item->get()) ? (int) $item->get() : 0;
+            $offset = $cursor % count($symbols);
+            $item->set($cursor + 1)->expiresAfter(self::LAST_SUCCESS_TTL);
+            $this->cache->save($item);
+
+            return array_merge(array_slice($symbols, $offset), array_slice($symbols, 0, $offset));
+        } catch (\Throwable) {
+            return $symbols;
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -473,6 +662,100 @@ class YahooFinanceService
         }
     }
 
+    /**
+     * @param array<string, mixed> $chart
+     */
+    private function dtoFromChart(string $normalizedSymbol, array $chart): ?MarketDataDto
+    {
+        $meta = is_array($chart['meta'] ?? null) ? $chart['meta'] : [];
+        $quote = is_array($chart['indicators']['quote'][0] ?? null)
+            ? $chart['indicators']['quote'][0]
+            : [];
+        $closes = is_array($quote['close'] ?? null) ? $quote['close'] : [];
+        $opens = is_array($quote['open'] ?? null) ? $quote['open'] : [];
+        $highs = is_array($quote['high'] ?? null) ? $quote['high'] : [];
+        $lows = is_array($quote['low'] ?? null) ? $quote['low'] : [];
+        $volumes = is_array($quote['volume'] ?? null) ? $quote['volume'] : [];
+
+        $lastClose = $this->lastNumeric($closes);
+        $price = $this->positiveFloat($meta['regularMarketPrice'] ?? null) ?? $lastClose;
+        if ($price === null) {
+            return null;
+        }
+
+        $open = $this->positiveFloat($meta['regularMarketOpen'] ?? null)
+            ?? $this->firstNumeric($opens)
+            ?? $price;
+        $high = $this->positiveFloat($meta['regularMarketDayHigh'] ?? null)
+            ?? $this->maxNumeric($highs)
+            ?? $price;
+        $low = $this->positiveFloat($meta['regularMarketDayLow'] ?? null)
+            ?? $this->minNumeric($lows)
+            ?? $price;
+        $previousClose = $this->positiveFloat($meta['chartPreviousClose'] ?? null)
+            ?? $this->positiveFloat($meta['previousClose'] ?? null)
+            ?? $price;
+        $volume = is_numeric($meta['regularMarketVolume'] ?? null)
+            ? max(0, (int) $meta['regularMarketVolume'])
+            : (int) max(0.0, $this->lastNumeric($volumes) ?? 0.0);
+
+        return new MarketDataDto(
+            symbol: $this->bareSymbol($normalizedSymbol),
+            price: $price,
+            open: $open,
+            high: $high,
+            low: $low,
+            previousClose: $previousClose,
+            volume: $volume,
+            fetchedAt: new \DateTimeImmutable(),
+        );
+    }
+
+    /** @param mixed[] $values */
+    private function firstNumeric(array $values): ?float
+    {
+        foreach ($values as $value) {
+            if (is_numeric($value) && (float) $value > 0.0) {
+                return (float) $value;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param mixed[] $values */
+    private function lastNumeric(array $values): ?float
+    {
+        for ($index = count($values) - 1; $index >= 0; --$index) {
+            if (is_numeric($values[$index]) && (float) $values[$index] > 0.0) {
+                return (float) $values[$index];
+            }
+        }
+
+        return null;
+    }
+
+    /** @param mixed[] $values */
+    private function maxNumeric(array $values): ?float
+    {
+        $numeric = array_map('floatval', array_filter($values, static fn(mixed $value): bool => is_numeric($value) && (float) $value > 0.0));
+
+        return $numeric === [] ? null : max($numeric);
+    }
+
+    /** @param mixed[] $values */
+    private function minNumeric(array $values): ?float
+    {
+        $numeric = array_map('floatval', array_filter($values, static fn(mixed $value): bool => is_numeric($value) && (float) $value > 0.0));
+
+        return $numeric === [] ? null : min($numeric);
+    }
+
+    private function positiveFloat(mixed $value): ?float
+    {
+        return is_numeric($value) && (float) $value > 0.0 ? (float) $value : null;
+    }
+
     private function backoffSeconds(int $attempt): int
     {
         return min((int) (2 ** $attempt) * 2, 30) + random_int(1, 5);
@@ -481,8 +764,13 @@ class YahooFinanceService
     private function normalizeSymbol(string $symbol): string
     {
         $symbol = strtoupper(trim($symbol));
+        $bareSymbol = str_ends_with($symbol, '.IS') ? substr($symbol, 0, -3) : $symbol;
 
-        return str_ends_with($symbol, '.IS') ? $symbol : $symbol . '.IS';
+        if (!preg_match('/^[A-Z0-9]{2,20}$/', $bareSymbol)) {
+            throw new \InvalidArgumentException('Gecersiz BIST sembolu.');
+        }
+
+        return $bareSymbol . '.IS';
     }
 
     private function bareSymbol(string $symbol): string

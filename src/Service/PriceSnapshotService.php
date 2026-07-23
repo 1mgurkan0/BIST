@@ -16,6 +16,7 @@ class PriceSnapshotService
 {
     public const CACHE_KEY = 'tracked_prices.snapshot';
     public const CACHE_TTL = 86400;
+    public const MAX_FRESH_AGE_SECONDS = 900;
 
     public function __construct(
         private readonly CacheInterface $cache,
@@ -60,13 +61,14 @@ class PriceSnapshotService
      */
     public function refresh(?array $symbols = null, bool $dryRun = false): array
     {
+        $partialRefresh = $symbols !== null;
         $symbols = $symbols === null ? $this->trackedSymbols() : $this->normalizeSymbols($symbols);
         $startedAt = new \DateTimeImmutable();
 
         if (empty($symbols)) {
             $payload = $this->emptySnapshot('no_symbols', 'Portfolio, takip listesi veya aktif alarm sembolu yok.');
 
-            if (!$dryRun) {
+            if (!$dryRun && !$partialRefresh) {
                 $this->saveSnapshot($payload);
             }
 
@@ -97,9 +99,23 @@ class PriceSnapshotService
             }
         }
 
+        $snapshotStatus = 'ok';
+        $message = 'Tum semboller taze veriyle guncellendi.';
+
+        if ($missing === count($symbols)) {
+            $snapshotStatus = 'failed';
+            $message = 'Yahoo fiyat verisi vermedi ve korunacak son basarili fiyat bulunamadi.';
+        } elseif ($fresh === 0) {
+            $snapshotStatus = 'stale_only';
+            $message = 'Yahoo yeni veri vermedi. Son basarili fiyatlar korunuyor.';
+        } elseif ($missing > 0 || $stale > 0) {
+            $snapshotStatus = 'partial';
+            $message = 'Kismi guncelleme yapildi. Bazi semboller son basarili fiyatla korunuyor.';
+        }
+
         $payload = [
-            'status' => $missing > 0 || $stale > 0 ? 'partial' : 'ok',
-            'message' => null,
+            'status' => $snapshotStatus,
+            'message' => $message,
             'fetchedAt' => $startedAt->format(\DateTimeInterface::ATOM),
             'updatedAt' => (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
             'symbols' => $symbols,
@@ -114,7 +130,7 @@ class PriceSnapshotService
         ];
 
         if (!$dryRun) {
-            $this->saveSnapshot($payload);
+            $this->saveSnapshot($partialRefresh ? $this->mergeWithCurrentSnapshot($payload) : $payload);
         }
 
         $this->logger->info('Tracked price snapshot refreshed.', [
@@ -127,6 +143,83 @@ class PriceSnapshotService
         ]);
 
         return $payload;
+    }
+
+    /**
+     * A manual/report-specific refresh must not erase unrelated tracked symbols.
+     *
+     * @param array<string, mixed> $partial
+     * @return array<string, mixed>
+     */
+    private function mergeWithCurrentSnapshot(array $partial): array
+    {
+        $current = $this->snapshot();
+        $currentItems = is_array($current['items'] ?? null) ? $current['items'] : [];
+        $partialItems = is_array($partial['items'] ?? null) ? $partial['items'] : [];
+
+        foreach ($currentItems as $symbol => $item) {
+            if (is_array($item)) {
+                $currentItems[$symbol] = $this->markAgedItemStale($item);
+            }
+        }
+
+        $items = array_replace($currentItems, $partialItems);
+        ksort($items);
+        $summary = $this->summarizeItems($items);
+
+        return [
+            'status' => $this->snapshotStatus($summary),
+            'message' => 'Kismi yenileme mevcut fiyat snapshotina birlestirildi.',
+            'fetchedAt' => $partial['fetchedAt'] ?? null,
+            'updatedAt' => $partial['updatedAt'] ?? null,
+            'symbols' => array_keys($items),
+            'summary' => $summary,
+            'items' => $items,
+        ];
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $items
+     * @return array{total: int, fresh: int, stale: int, missing: int, rateLimited: int}
+     */
+    private function summarizeItems(array $items): array
+    {
+        $summary = ['total' => count($items), 'fresh' => 0, 'stale' => 0, 'missing' => 0, 'rateLimited' => 0];
+
+        foreach ($items as $item) {
+            if (!is_numeric($item['price'] ?? null)) {
+                ++$summary['missing'];
+            } elseif (($item['quoteStatus'] ?? null) === 'ok' && empty($item['isStale'])) {
+                ++$summary['fresh'];
+            } else {
+                ++$summary['stale'];
+            }
+
+            if ((int) ($item['httpStatus'] ?? 0) === 429) {
+                ++$summary['rateLimited'];
+            }
+        }
+
+        return $summary;
+    }
+
+    /** @param array{total: int, fresh: int, stale: int, missing: int, rateLimited: int} $summary */
+    private function snapshotStatus(array $summary): string
+    {
+        if ($summary['total'] === 0) {
+            return 'no_symbols';
+        }
+        if ($summary['missing'] === $summary['total']) {
+            return 'failed';
+        }
+        if ($summary['fresh'] === 0) {
+            return 'stale_only';
+        }
+        if ($summary['missing'] > 0 || $summary['stale'] > 0) {
+            return 'partial';
+        }
+
+        return 'ok';
     }
 
     /**
@@ -163,7 +256,7 @@ class PriceSnapshotService
 
         foreach ($symbols as $symbol) {
             $items[$symbol] = is_array($snapshotItems[$symbol] ?? null)
-                ? $snapshotItems[$symbol]
+                ? $this->markAgedItemStale($snapshotItems[$symbol])
                 : $this->emptyItem($symbol, $snapshot['status'] === 'waiting_for_refresh' ? 'waiting_for_refresh' : 'missing_snapshot');
         }
 
@@ -310,6 +403,41 @@ class PriceSnapshotService
             ],
             'items' => [],
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     * @return array<string, mixed>
+     */
+    private function markAgedItemStale(array $item): array
+    {
+        if (!empty($item['isStale']) || !is_numeric($item['price'] ?? null)) {
+            return $item;
+        }
+
+        $fetchedAt = $item['fetchedAt'] ?? null;
+        if (!is_string($fetchedAt) || $fetchedAt === '') {
+            $item['isStale'] = true;
+            $item['quoteStatus'] = 'stale_snapshot';
+            $item['status'] = 'stale_snapshot';
+            $item['statusMessage'] = 'Fiyat snapshot zamani bilinmiyor.';
+            return $item;
+        }
+
+        try {
+            $age = time() - (new \DateTimeImmutable($fetchedAt))->getTimestamp();
+        } catch (\Throwable) {
+            $age = self::MAX_FRESH_AGE_SECONDS + 1;
+        }
+
+        if ($age > self::MAX_FRESH_AGE_SECONDS) {
+            $item['isStale'] = true;
+            $item['quoteStatus'] = 'stale_snapshot';
+            $item['status'] = 'stale_snapshot';
+            $item['statusMessage'] = sprintf('Fiyat snapshoti %d dakikadan eski.', (int) floor($age / 60));
+        }
+
+        return $item;
     }
 
     /**

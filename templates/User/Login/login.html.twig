@@ -174,7 +174,7 @@
                 {% if error %}
                     <div class="flash-alert flash-error">
                         <i class="bi bi-exclamation-triangle-fill"></i>
-                        {{ error.messageKey | trans(error.messageData, 'Login') | raw }}
+                        {{ error.messageKey | trans(error.messageData, 'Login') }}
                     </div>
                 {% endif %}
 
@@ -182,7 +182,7 @@
                     {% for message in messages %}
                         <div class="flash-alert flash-{{ type == 'error' or type == 'danger' ? 'error' : 'success' }}">
                             <i class="bi bi-{{ type == 'error' or type == 'danger' ? 'exclamation-triangle' : 'check-circle' }}-fill"></i>
-                            {{ message | raw }}
+                            {{ message }}
                         </div>
                     {% endfor %}
                 {% endfor %}

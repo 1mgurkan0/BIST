@@ -143,6 +143,20 @@
                             <i class="bi bi-arrow-repeat me-1"></i>
                             SON GUNCELLEME: {{ stock.createdAt|date('d.m.Y H:i:s') }}
                         </small>
+                        {% if marketDataStatus is defined and marketDataStatus %}
+                            {% if marketDataStatus.isStale %}
+                                <div class="mt-2">
+                                    <span class="badge text-bg-warning">
+                                        {% if marketDataStatus.httpStatus == 429 %}!429 · {% endif %}
+                                        STALE VERI · {{ marketDataStatus.source }}
+                                    </span>
+                                </div>
+                            {% else %}
+                                <div class="mt-2">
+                                    <span class="badge text-bg-success">GUNCEL · {{ marketDataStatus.source }}</span>
+                                </div>
+                            {% endif %}
+                        {% endif %}
                     </div>
                     <div class="text-md-end">
                         <div class="display-5 font-monospace fw-bold text-white">
@@ -188,34 +202,42 @@
 
             <div class="text-center mt-5">
                 <button onclick="toggleNewsList()" class="btn btn-outline-warning rounded-pill px-5 py-3 fw-bold shadow-sm tracking-widest">
-                    <i id="arrowIcon" class="bi bi-chevron-down me-2"></i> YAPAY ZEKA KAP ANALIZLERI
+                    <i id="arrowIcon" class="bi bi-chevron-down me-2"></i> KAP HABERLERI VE AI ANALIZLERI
                 </button>
 
                 <div id="newsListContainer" class="d-none mt-4 text-start">
                     {% if newsList is defined and newsList is not empty %}
                         <div class="row g-4">
                             {% for news in newsList %}
+                                {% set isAnalyzed = news.isAnalyzed and news.sentimentScore is not null %}
                                 <div class="col-12">
-                                    <div class="card-custom p-4 shadow-sm border-start border-4 {{ news.sentimentScore >= 70 ? 'border-success' : (news.sentimentScore <= -70 ? 'border-danger' : 'border-warning') }}">
+                                    <div class="card-custom p-4 shadow-sm border-start border-4 {{ isAnalyzed ? (news.sentimentScore >= 70 ? 'border-success' : (news.sentimentScore <= -70 ? 'border-danger' : 'border-warning')) : 'border-secondary' }}">
                                         <div class="d-flex justify-content-between align-items-start border-bottom border-secondary pb-3 mb-3">
                                             <div>
-                                                <div class="d-flex align-items-center gap-2 mb-1">
-                                                    <span class="small text-secondary fw-bold tracking-widest">DUYGU PUANI:</span>
-                                                    <span class="fs-5 fw-bold {{ news.sentimentScore >= 70 ? 'text-success' : (news.sentimentScore <= -70 ? 'text-danger' : 'text-warning') }}">
-                                                        {{ news.sentimentScore }} / 100
-                                                    </span>
-                                                </div>
+                                                {% if isAnalyzed %}
+                                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                                        <span class="small text-secondary fw-bold tracking-widest">DUYGU PUANI:</span>
+                                                        <span class="fs-5 fw-bold {{ news.sentimentScore >= 70 ? 'text-success' : (news.sentimentScore <= -70 ? 'text-danger' : 'text-warning') }}">
+                                                            {{ news.sentimentScore }} / 100
+                                                        </span>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="small text-secondary fw-bold tracking-widest mb-1">
+                                                        <i class="bi bi-hourglass-split me-1"></i> AI ANALIZI BEKLIYOR
+                                                    </div>
+                                                {% endif %}
                                                 <div class="small text-secondary">
                                                     <i class="bi bi-calendar3 me-1"></i> {{ news.publishedAt|date('d.m.Y H:i') }}
                                                 </div>
                                             </div>
-                                            <a href="https://www.kap.org.tr/tr/Bildirim/{{ news.kapId }}" target="_blank" class="btn btn-sm btn-outline-info rounded-pill px-3">
+                                            <a href="https://www.kap.org.tr/tr/Bildirim/{{ news.kapId }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info rounded-pill px-3">
                                                 KAP'ta Gor <i class="bi bi-box-arrow-up-right ms-1"></i>
                                             </a>
                                         </div>
+                                        <h5 class="text-light mb-3">{{ news.title }}</h5>
                                         <div class="ai-summary-box small lh-lg">
-                                            <i class="bi bi-robot text-yellow-custom me-2 fs-5"></i>
-                                            {{ news.aiSummary|nl2br }}
+                                            <i class="bi {{ isAnalyzed ? 'bi-robot text-yellow-custom' : 'bi-building text-secondary' }} me-2 fs-5"></i>
+                                            {{ (isAnalyzed ? news.aiSummary : news.content)|nl2br }}
                                         </div>
                                     </div>
                                 </div>
@@ -224,7 +246,7 @@
                     {% else %}
                         <div class="card-custom text-secondary p-5 text-center border-secondary">
                             <i class="bi bi-inbox fs-1 mb-3 d-block opacity-50"></i>
-                            <p class="mb-0 fs-5">"{{ symbol }}" icin son 1 haftaya ait KAP haberi veya analizi bulunamadi.</p>
+                            <p class="mb-0 fs-5">"{{ symbol }}" icin son 1 haftaya ait KAP haberi bulunamadi.</p>
                         </div>
                     {% endif %}
                 </div>
@@ -233,7 +255,9 @@
             <div class="alert alert-danger bg-red-soft border-danger text-danger text-center rounded-4 p-5 shadow-lg mt-4">
                 <i class="bi bi-exclamation-triangle-fill display-4 mb-3 d-block"></i>
                 <h4 class="fw-bold mb-2">Veri Bulunamadi</h4>
-                <p class="mb-0 text-white-50">"{{ symbol }}" sembolu icin veritabaninda veya Yahoo Finance uzerinde guncel veri cekilemedi.</p>
+                <p class="mb-0 text-white-50">
+                    {{ marketDataStatus.message|default('"' ~ symbol ~ '" sembolu icin veritabaninda veya Yahoo Finance uzerinde veri bulunamadi.') }}
+                </p>
             </div>
         {% endif %}
     </div>

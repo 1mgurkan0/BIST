@@ -33,8 +33,8 @@ class LoginFormAuthenticator extends AbstractLoginFormAuthenticator
 
     public function authenticate(Request $request): Passport
     {
-        $email    = $request->request->get('email', '');
-        $password = $request->request->get('password', '');
+        $email = strtolower(trim((string) $request->request->get('email', '')));
+        $password = (string) $request->request->get('password', '');
 
         $request->getSession()->set(SecurityRequestAttributes::LAST_USERNAME, $email);
 
@@ -44,16 +44,19 @@ class LoginFormAuthenticator extends AbstractLoginFormAuthenticator
 
                 if (!$user) {
                     throw new CustomUserMessageAuthenticationException(
-                        'E-posta adresi veya şifre hatalı.'
+                        'E-posta adresi veya sifre hatali.'
                     );
                 }
 
                 if (!$user->isVerified()) {
                     throw new CustomUserMessageAuthenticationException(
-                        'E-posta adresiniz henüz doğrulanmamış. '
-                        . 'Lütfen gelen kutunuzu kontrol edin veya '
-                        . '<a href="/verify/resend" style="color:inherit;font-weight:600;text-decoration:underline">'
-                        . 'yeni kod isteyin →</a>'
+                        'E-posta adresi veya sifre hatali.'
+                    );
+                }
+
+                if (!in_array('ROLE_ADMIN', $user->getRoles(), true)) {
+                    throw new CustomUserMessageAuthenticationException(
+                        'E-posta adresi veya sifre hatali.'
                     );
                 }
 

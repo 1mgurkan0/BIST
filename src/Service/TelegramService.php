@@ -1,82 +1,80 @@
 <?php
+
 namespace App\Service;
 
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Psr\Log\LoggerInterface;
-class TelegramService{
-    private $token;
-    private $chatid;
-    private HttpClientInterface $client;
-    private LoggerInterface $logger;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+
+class TelegramService
+{
+    private const MAX_RETRIES = 2;
+    private const MAX_MESSAGE_LENGTH = 4096;
 
     public function __construct(
-        string $Telegramtoken,
-        string $Telegramchatid,
-        HttpClientInterface $client,
-        LoggerInterface $logger,
-    ){
-            $this->token = $Telegramtoken;
-            $this->chatid = $Telegramchatid;
-            $this->client = $client;
-            $this->logger = $logger;
-    }
+        private readonly string $Telegramtoken,
+        private readonly string $Telegramchatid,
+        private readonly HttpClientInterface $client,
+        private readonly LoggerInterface $logger,
+    ) {}
 
     public function sendMessage(string $message, string $parseMode = 'HTML'): bool
     {
-        $url = "https://api.telegram.org/bot{$this->token}/sendMessage";
+        if (trim($this->Telegramtoken) === '' || trim($this->Telegramchatid) === '') {
+            $this->logger->warning('Telegram credentials are missing.');
+            return false;
+        }
+
+        if (mb_strlen($message) > self::MAX_MESSAGE_LENGTH) {
+            $this->logger->error('Telegram message exceeds 4096 characters.', ['length' => mb_strlen($message)]);
+            return false;
+        }
+
+        return $this->send($message, $parseMode, 0);
+    }
+
+    private function send(string $message, string $parseMode, int $attempt): bool
+    {
+        $url = sprintf('https://api.telegram.org/bot%s/sendMessage', $this->Telegramtoken);
 
         try {
-
             $response = $this->client->request('POST', $url, [
                 'json' => [
-                    'chat_id' => $this->chatid,
+                    'chat_id' => $this->Telegramchatid,
                     'text' => $message,
                     'parse_mode' => $parseMode,
-                    'disable_web_page_preview' => true
+                    'disable_web_page_preview' => true,
                 ],
-                'timeout' => 8
+                'timeout' => 10,
             ]);
-
             $status = $response->getStatusCode();
+            $content = $response->toArray(false);
 
-            if ($status === 429) {
-                $data = $response->toArray(false);
-
-                $retryAfter = $data['parameters']['retry_after'] ?? 3;
-
-                $this->logger->warning("Telegram rate limit yedi. {$retryAfter}s sonra tekrar denenecek");
-
+            if ($status === 429 && $attempt < self::MAX_RETRIES) {
+                $retryAfter = max(1, min(15, (int) ($content['parameters']['retry_after'] ?? 3)));
+                $this->logger->warning('Telegram rate limited the message.', [
+                    'retry_after' => $retryAfter,
+                    'attempt' => $attempt + 1,
+                ]);
                 sleep($retryAfter);
 
-                return $this->sendMessage($message, $parseMode);
+                return $this->send($message, $parseMode, $attempt + 1);
             }
 
-            if ($status !== 200) {
-                $this->logger->error('Telegram HTTP hata', [
+            if ($status !== 200 || ($content['ok'] ?? false) !== true) {
+                $this->logger->error('Telegram API request failed.', [
                     'status' => $status,
-                    'response' => $response->getContent(false)
+                    'description' => $content['description'] ?? null,
                 ]);
                 return false;
             }
 
-            $content = $response->toArray(false);
-
-            if (($content['ok'] ?? false) !== true) {
-                $this->logger->error('Telegram API hata', $content);
-                return false;
-            }
-
-            $this->logger->info('Telegram mesajı gönderildi');
+            $this->logger->info('Telegram message sent.');
             return true;
-
         } catch (\Throwable $e) {
-
-            $this->logger->critical('Telegram exception', [
-                'error' => $e->getMessage()
+            $this->logger->error('Telegram request failed.', [
+                'error' => str_replace($this->Telegramtoken, '[redacted]', $e->getMessage()),
             ]);
-
             return false;
         }
     }
-
 }

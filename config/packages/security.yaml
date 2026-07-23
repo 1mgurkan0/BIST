@@ -30,15 +30,22 @@ security:
         secret: '%kernel.secret%'
         lifetime: 604800   # 7 gün (saniye)
         path: /
+        secure: auto
+        httponly: true
+        samesite: lax
 
       logout:
         path: app_logout
         target: app_login
         invalidate_session: true
+        enable_csrf: true
+        csrf_token_id: logout
 
   access_control:
+    - { path: ^/health/(live|ready)$, roles: PUBLIC_ACCESS }
     - { path: ^/login$, roles: PUBLIC_ACCESS }
-    - { path: ^/,      roles: ROLE_USER }
+    - { path: ^/(register|verify|forgot-password|reset-password), roles: ROLE_DISABLED_WEB_ACCOUNT_FLOW }
+    - { path: ^/,      roles: ROLE_ADMIN }
 
 when@test:
   security:
