@@ -77,4 +77,4 @@ Sistemin her gün sonu sana sunacağı özet formatı:
 > *AI Yorumu:* Negatif KAP haberi ve Bollinger alt bandına gerileme nedeniyle kısa vadede riskli.
 
 ---
-*Geleceğin yatırım asistanı, bugünden senin sunucunda.* 📈 🤖
+*Geleceğin yatırım asistanı, bugünden seninle beraber.* 

@@ -69,7 +69,12 @@ class DailyAiReportCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $lock = $this->lockFactory->createLock('daily_ai_report_process', 1800.0, false);
+        $symbols = $this->resolveSymbols(
+            $input->getOption('symbol'),
+            (bool) $input->getOption('opportunities'),
+            max(1, (int) $input->getOption('opportunity-limit'))
+        );
+        $lock = $this->lockFactory->createLock('daily_ai_report_' . md5(implode(',', $symbols)), 3600.0, false);
         if (!$lock->acquire()) {
             (new SymfonyStyle($input, $output))->error('Baska bir gun sonu AI raporu halen calisiyor.');
             return Command::FAILURE;
@@ -184,6 +189,9 @@ class DailyAiReportCommand extends Command
 
             if (!$dryRun) {
                 $this->em->persist($report);
+                if (($index + 1) % 10 === 0) {
+                    $this->em->flush();
+                }
             }
 
             $io->writeln(sprintf(

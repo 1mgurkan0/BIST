@@ -25,15 +25,22 @@ class WatchlistController extends AbstractController
     public function index(WatchlistItemRepository $repository, PriceAlertRepository $alertRepository): Response
     {
         $items = $repository->findOrdered();
+        $alerts = $alertRepository->findOrdered();
+        
         $activeSymbols = array_map(
             fn(WatchlistItem $item) => $item->getSymbol(),
             array_filter($items, fn(WatchlistItem $item) => $item->isActive())
         );
+        $alertSymbols = array_map(
+            fn(PriceAlert $alert) => $alert->getSymbol(),
+            array_filter($alerts, fn(PriceAlert $alert) => $alert->isActive())
+        );
+        $allSymbols = array_unique(array_merge($activeSymbols, $alertSymbols));
 
         return $this->render('User/watchlist/index.html.twig', [
             'items' => $items,
-            'alerts' => $alertRepository->findOrdered(),
-            'marketData' => $this->marketDataPayload($activeSymbols),
+            'alerts' => $alerts,
+            'marketData' => $this->marketDataPayload($allSymbols),
         ]);
     }
 
@@ -203,14 +210,19 @@ class WatchlistController extends AbstractController
     }
 
     #[Route('/api/live', name: 'api_watchlist_live', methods: ['GET'])]
-    public function live(WatchlistItemRepository $repository): JsonResponse
+    public function live(WatchlistItemRepository $repository, PriceAlertRepository $alertRepository): JsonResponse
     {
-        $symbols = array_map(
+        $activeSymbols = array_map(
             fn(WatchlistItem $item) => $item->getSymbol(),
             $repository->findActive()
         );
+        $alertSymbols = array_map(
+            fn(PriceAlert $alert) => $alert->getSymbol(),
+            $alertRepository->findActive()
+        );
+        $allSymbols = array_unique(array_merge($activeSymbols, $alertSymbols));
 
-        return $this->json($this->marketDataPayload($symbols));
+        return $this->json($this->marketDataPayload($allSymbols));
     }
 
     /**

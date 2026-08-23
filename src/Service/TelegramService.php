@@ -24,12 +24,48 @@ class TelegramService
             return false;
         }
 
-        if (mb_strlen($message) > self::MAX_MESSAGE_LENGTH) {
-            $this->logger->error('Telegram message exceeds 4096 characters.', ['length' => mb_strlen($message)]);
-            return false;
+        $maxLength = 4000;
+        if (mb_strlen($message) <= $maxLength) {
+            return $this->send($message, $parseMode, 0);
         }
 
-        return $this->send($message, $parseMode, 0);
+        // Basit chunk mantigi, HTML taglarini bolme riski var ama Telegram limitini asmaktan iyidir.
+        // Genelde raporlar satirlardan olustugu icin satir satir bolmeye calisir
+        $lines = explode("\n", $message);
+        $chunks = [];
+        $currentChunk = '';
+
+        foreach ($lines as $line) {
+            if (mb_strlen($currentChunk . "\n" . $line) > $maxLength) {
+                if ($currentChunk !== '') {
+                    $chunks[] = trim($currentChunk);
+                    $currentChunk = '';
+                }
+                
+                if (mb_strlen($line) > $maxLength) {
+                    $hardChunks = mb_str_split($line, $maxLength);
+                    foreach ($hardChunks as $hc) {
+                        $chunks[] = $hc;
+                    }
+                    continue;
+                }
+            }
+            $currentChunk .= ($currentChunk === '' ? '' : "\n") . $line;
+        }
+
+        if ($currentChunk !== '') {
+            $chunks[] = trim($currentChunk);
+        }
+
+        $success = true;
+        foreach ($chunks as $chunk) {
+            if (!$this->send($chunk, $parseMode, 0)) {
+                $success = false;
+            }
+            usleep(500000); // Spam korumasi
+        }
+
+        return $success;
     }
 
     private function send(string $message, string $parseMode, int $attempt): bool
