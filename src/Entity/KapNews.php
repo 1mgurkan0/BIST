@@ -22,7 +22,7 @@ class KapNews
     #[ORM\Column(length: 50)]
     private ?string $kapId = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 500)]
     private ?string $title = null;
 
     #[ORM\Column(type: Types::TEXT)]
@@ -77,7 +77,7 @@ class KapNews
 
     public function setTitle(string $title): static
     {
-        $this->title = $title;
+        $this->title = mb_substr($title, 0, 500);
         return $this;
     }
 

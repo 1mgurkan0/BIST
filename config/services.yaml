@@ -9,6 +9,12 @@ parameters:
     gemini.api_key: '%env(GEMINI_API_KEY)%'
     gemini.model: '%env(default:default_gemini_model:GEMINI_MODEL)%'
     default_gemini_model: 'gemini-2.5-flash'
+    nvidia.api_key: '%env(default:empty:NVIDIA_API_KEY)%'
+    nvidia.model: '%env(default:default_nvidia_model:NVIDIA_MODEL)%'
+    default_nvidia_model: 'nvidia/nemotron-3-ultra-550b-a55b:free'
+    empty: ''
+    active_ai_provider: '%env(default:default_ai_provider:ACTIVE_AI_PROVIDER)%'
+    default_ai_provider: 'Gemini'
     telegram.token: '%env(TELEGRAM_BOT_TOKEN)%'
     telegram.chat_id: '%env(TELEGRAM_CHAT_ID)%'
 services:
@@ -25,17 +31,30 @@ services:
       - '../src/DependencyInjection/'
       - '../src/Entity/'
       - '../src/Kernel.php'
+      
   App\Service\GeminiService:
     arguments:
       $Geminiapikey: '%gemini.api_key%'
       $model: '%gemini.model%'
 
+  App\Service\NvidiaService:
+    arguments:
+      $NvidiaApiKey: '%nvidia.api_key%'
+      $model: '%nvidia.model%'
+
+  App\Factory\AiProviderFactory:
+    arguments:
+      $activeProvider: '%active_ai_provider%'
+
+  # Alias the interface to the active provider via factory
+  App\Interface\AiProviderInterface:
+    factory: ['@App\Factory\AiProviderFactory', 'create']
+
   App\Service\TelegramService:
     arguments:
       $Telegramtoken: '%telegram.token%'
       $Telegramchatid: '%telegram.chat_id%'
+      
   App\Service\BistUniverseService:
     arguments:
       $configuredSymbols: '%env(default:bist_scan_symbols:BIST_SCAN_SYMBOLS)%'
-  # add more service definitions when explicit configuration is needed
-  # please note that last definitions always *replace* previous ones

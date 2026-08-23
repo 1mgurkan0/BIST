@@ -4,7 +4,7 @@ namespace App\Command;
 
 use App\Entity\KapNews;
 use App\Repository\KapNewsRepository;
-use App\Service\GeminiService;
+use App\Interface\AiProviderInterface;
 use App\Service\PriceSnapshotService;
 use App\Service\TelegramService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,7 +28,7 @@ final class KapAnalyzerCommand extends Command
 
     public function __construct(
         private readonly KapNewsRepository $repository,
-        private readonly GeminiService $gemini,
+        private readonly AiProviderInterface $aiProvider,
         private readonly EntityManagerInterface $em,
         private readonly TelegramService $telegram,
         private readonly LoggerInterface $logger,
@@ -46,7 +46,7 @@ final class KapAnalyzerCommand extends Command
             ->addOption('all-bist', null, InputOption::VALUE_NONE, 'Takip edilen semboller yerine tum bekleyen KAP haberlerini analiz et.')
             ->addOption('limit', 'l', InputOption::VALUE_OPTIONAL, 'Analiz edilecek haber sayisi (1-50).', self::DEFAULT_BATCH_SIZE)
             ->addOption('threshold', 't', InputOption::VALUE_OPTIONAL, 'Telegram sinyal esigi (0-100).', self::DEFAULT_THRESHOLD)
-            ->addOption('delay', 'd', InputOption::VALUE_OPTIONAL, 'Gemini istekleri arasi bekleme saniyesi.', 2);
+            ->addOption('delay', 'd', InputOption::VALUE_OPTIONAL, 'Gemini istekleri arasi bekleme saniyesi.', 12);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -211,10 +211,10 @@ Yalnizca su semada gecerli JSON dondur:
 score -100 ile 100 arasinda olsun; negatif olumsuz, sifira yakin notr, pozitif olumlu etkiyi gostersin.
 PROMPT;
 
-        $raw = $this->gemini->askJson($prompt);
+        $raw = $this->aiProvider->askJson($prompt);
         $data = $this->decodeJson($raw);
         if ($data === null || !is_numeric($data['score'] ?? null)) {
-            throw new \RuntimeException('Gemini gecerli KAP analiz JSON verisi dondurmedi.');
+            throw new \RuntimeException('AI gecerli KAP analiz JSON verisi dondurmedi.');
         }
 
         $score = max(-100, min(100, (int) $data['score']));

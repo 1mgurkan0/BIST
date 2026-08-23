@@ -6,11 +6,11 @@ use App\Entity\AiSymbolReport;
 use App\Entity\KapNews;
 use App\Entity\Portfolio;
 use App\Entity\WatchlistItem;
+use App\Interface\AiProviderInterface;
 use App\Repository\KapNewsRepository;
 use App\Repository\OpportunityCandidateRepository;
 use App\Repository\PortfolioRepository;
 use App\Repository\WatchlistItemRepository;
-use App\Service\GeminiService;
 use App\Service\PriceSnapshotService;
 use App\Service\TelegramService;
 use App\Service\TechnicalAnalysisService;
@@ -33,7 +33,7 @@ class DailyAiReportCommand extends Command
 {
     private const DEFAULT_DAYS = 7;
     private const DEFAULT_NEWS_LIMIT = 5;
-    private const DEFAULT_DELAY = 4.0;
+    private const DEFAULT_DELAY = 12.0;
 
     public function __construct(
         private readonly PriceSnapshotService $priceSnapshot,
@@ -43,7 +43,7 @@ class DailyAiReportCommand extends Command
         private readonly WatchlistItemRepository $watchlistRepository,
         private readonly OpportunityCandidateRepository $opportunityRepository,
         private readonly KapNewsRepository $kapNewsRepository,
-        private readonly GeminiService $gemini,
+        private readonly AiProviderInterface $aiProvider,
         private readonly TelegramService $telegram,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
@@ -307,11 +307,11 @@ class DailyAiReportCommand extends Command
     private function askGemini(string $symbol, array $priceItem, array $kapNews, array $technical, array $history): array
     {
         $prompt = $this->buildPrompt($symbol, $priceItem, $kapNews, $technical, $history);
-        $rawResponse = $this->gemini->askJson($prompt);
+        $rawResponse = $this->aiProvider->askJson($prompt);
         $data = $this->decodeAiJson($rawResponse);
 
         if ($data === null) {
-            $retryResponse = $this->gemini->askJson($prompt . "\n\nOnceki yanit parse edilemedi. Yalnizca tek bir gecerli JSON nesnesi dondur.");
+            $retryResponse = $this->aiProvider->askJson($prompt . "\n\nOnceki yanit parse edilemedi. Yalnizca tek bir gecerli JSON nesnesi dondur.");
             $retryData = $this->decodeAiJson($retryResponse);
             if ($retryData !== null) {
                 return [$this->normalizeAiData($retryData), $retryResponse, AiSymbolReport::ANALYSIS_SUCCESS];

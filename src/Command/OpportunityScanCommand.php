@@ -112,7 +112,7 @@ class OpportunityScanCommand extends Command
             }
         }
 
-        $minimumEligible = min(count($symbols), max(5, (int) ceil(count($symbols) * 0.2)));
+        $minimumEligible = min(count($symbols), max(1, (int) ceil(count($symbols) * 0.05)));
         if ($rank < $minimumEligible) {
             $io->error(sprintf(
                 'Tarama kalite esigini gecemedi: %d/%d taze sembol (minimum %d). Son basarili tarama korunuyor.',

@@ -2,14 +2,16 @@
 
 namespace App\Service;
 
+use App\Interface\AiProviderInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
-class GeminiService
+class GeminiService implements AiProviderInterface
 {
     private const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent';
-    private const MAX_ATTEMPTS = 3;
-    private const MAX_RETRY_AFTER_SECONDS = 15.0;
+    private const MAX_ATTEMPTS = 4;
+    private const MAX_RETRY_AFTER_SECONDS = 60.0;
     private const TRANSIENT_STATUS_CODES = [429, 500, 502, 503, 504];
 
     public function __construct(
