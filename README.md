@@ -1,38 +1,62 @@
-# BAM - Kisisel BIST Karar Terminali
+# BIST AI Terminal 🚀
 
-BAM; takip listesi ve portfoy hisselerini izleyen, fiyat alarmi ureten, KAP haberlerini toplayan ve gun sonu Gemini destekli cok vadeli analiz raporu hazirlayan kisisel Symfony uygulamasidir.
+**BIST AI Terminal**, Borsa İstanbul (BIST) hisselerini tamamen otonom bir şekilde 7/24 izleyen, teknik göstergeleri hesaplayan, KAP (Kamuyu Aydınlatma Platformu) haberlerini anlık analiz eden ve **NVIDIA Nemotron 550b** gibi devasa Yapay Zeka modelleriyle karar destek sinyalleri üreten ileri seviye bir **Yatırım Analiz Motoru**dur.
 
-## Yerel gelistirme
+Sistem, yatırımcıların duygusal karar vermesini engelleyip, veriye ve gelişmiş yapay zeka çıkarımlarına dayalı "takip_et / bekle / riskli" kararlarını **Telegram** üzerinden doğrudan cebinize ulaştırır.
+
+---
+
+## 🌟 Neden BIST AI Terminal?
+
+- **%100 Otonom Çalışma:** Sistemi bir kere kurduktan sonra arkasına yaslanın. Symfony Scheduler ve Supervisor sayesinde kendi kendine çalışır, sizi uyarır.
+- **Yapay Zeka Gücü (Nvidia & Gemini):** Açık kaynaklı devasa dil modellerinden **Nvidia Nemotron 550b** (OpenRouter üzerinden) veya Google Gemini 2.5 API kullanarak haberleri ve teknik analizleri yorumlar.
+- **Anlık KAP Sensörü:** BIST'e düşen her haberi anında çeker, okur, olumlu/olumsuz duygu skorunu (Sentiment) hesaplar. Eğer haberin puanı belirlediğiniz eşiğin üstündeyse saniyeler içinde size **Telegram Sinyali** gönderir!
+- **Devasa Veri İşleme & Teknik Analiz:** Fiyat hareketleri, MACD, RSI, SMA (20-50-200), Destek/Direnç noktaları gibi derin teknik analizleri milisaniyeler içinde hesaplayıp, geçmiş trendlerle birlikte yapay zekaya sunar.
+
+## 🛠 Mimari & Teknolojiler
+
+- **Backend:** PHP 8.2 / Symfony 7.4
+- **Veritabanı:** MySQL 8.0 (Doctrine ORM)
+- **Önbellek & Kuyruk:** Redis 7 (Symfony Messenger / Cache)
+- **AI Sağlayıcıları:** OpenRouter (NVIDIA Modelleri) & Google Gemini API
+- **Otomasyon:** Symfony Scheduler & Supervisor (Linux)
+- **Frontend:** Twig & Tailwind CSS (Dark Mode Admin UI)
+
+---
+
+## ⚙️ Nasıl Çalışır? (Otomasyon Süreci)
+
+Zamanlanmış görevler (Scheduler) sayesinde sistemin günlük rutini şu şekildedir:
+
+1. **`10:00 - 18:00 (Her 2 dakikada bir)`:** Yahoo Finance üzerinden aktif fiyatlar çekilir ve senin belirlediğin Alarm (Alert) sınırları test edilir.
+2. **`18:12 (Piyasa Kapanışı)`:** Günün tüm KAP haberleri çekilerek veritabanına işlenir (12.000 karaktere kadar haber okuma kapasitesi).
+3. **`18:16`:** Yapay Zeka devreye girer. Günün KAP haberlerini tek tek okuyup, her birine duygu puanı (-100 / +100) ve gerekçe atar.
+4. **`18:25`:** **Ana Karar Motoru** devreye girer. Portföyündeki ve takip listendeki hisselerin "Teknik Analizi + KAP Haberleri + Fiyat Hareketleri" birleştirilir ve devasa bir Prompt ile AI'a sorulur. Sonuçlar **Telegram** üzerinden raporlanır.
+5. **`18:40 & 19:00`:** BIST 50 evreni taranır, RSI/MACD kriterlerine uyan fırsat hisseleri yapay zekanın önüne atılır ve sana "Yarın izlemen gerekenler" listesi çıkarılır.
+
+## 🚀 Kurulum (Development)
+
+Projeyi kendi ortamınızda ayağa kaldırmak oldukça basittir:
 
 ```bash
+# 1. Repoyu Klonlayın
+git clone https://github.com/1mgurkan0/BIST.git
+cd BIST
+
+# 2. Bağımlılıkları Yükleyin
 composer install
-docker compose up -d database redis mailer
-php bin/console doctrine:migrations:migrate --no-interaction
-symfony server:start
-```
 
-Admin hesabi web kaydiyla degil terminalden yonetilir:
+# 3. Docker Konteynerlerini Başlatın (MySQL, Redis, Mailpit vb.)
+docker compose up -d
 
-```bash
-php bin/console app:admin:reset-password email@example.com
-```
+# 4. Çevresel Değişkenleri (.env) Ayarlayın
+cp .env.example .env
+# İçerisine NVIDIA_API_KEY, TELEGRAM_BOT_TOKEN gibi ayarlarınızı girin.
 
-Temel dogrulama:
+# 5. Veritabanını Oluşturun ve Güncelleyin
+php bin/console doctrine:database:create
+php bin/console doctrine:migrations:migrate
 
-```bash
-php bin/console app:production:check
-php bin/phpunit
-```
-
-## Calisma akisi
-
-- `app:prices:refresh`: aktif portfoy, takip listesi ve alarm sembollerini tek Yahoo batch istegiyle yeniler.
-- `app:alerts:check --dry-run`: taze snapshot uzerinden alarm kosullarini Telegram gondermeden sinar.
-- `app:kap-crawl --days=2 --dry-run`: resmi KAP akisini kontrol eder.
-- `app:run-analysis --dry-run --limit=1`: yeni KAP haberlerinin Gemini analiz yolunu sinar.
-- `app:opportunities:scan --dry-run`: yapilandirilmis BIST evrenini teknik olarak siralar.
-- `app:daily-ai-report --dry-run --mock-ai`: kayit ve Telegram yan etkisi olmadan gun sonu rapor hattini sinar.
-
-Dashboard dis kaynak beklemez; son fiyat snapshotini ve son basarili AI raporunu gosterir. Yahoo 429 verirse son basarili fiyat `stale/!429` olarak korunur ve alarm tetiklenmez.
-
-Canli kurulum, worker, Nginx, TLS, yedekleme ve test surusu icin [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) dosyasini kullanin.
+# 6. Uygulamayı ve Otomasyonu Çalıştırın
+symfony serve -d
+php bin/console messenger:consume async scheduler_default -vv
