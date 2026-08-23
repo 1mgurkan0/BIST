@@ -60,3 +60,22 @@ php bin/console doctrine:migrations:migrate
 # 6. Uygulamayı ve Otomasyonu Çalıştırın
 symfony serve -d
 php bin/console messenger:consume async scheduler_default -vv
+```
+
+---
+
+## 📊 Örnek Yapay Zeka Çıktısı (Telegram Raporu)
+
+Sistemin her gün sonu sana sunacağı özet formatı:
+
+> 🟢 **EN GÜÇLÜ ADAYLAR**
+> **THYAO (Skor: 85)** | Trend: POZITIF
+> Fiyat: 320.50 (20 Günlük SMA üstünde)
+> *AI Yorumu:* MACD yukarı kesiyor ve RSI toparlanmış. Son açıklanan yolcu kapasitesi KAP bildirimi şirketin karlılığını destekliyor.
+
+> 🔴 **RİSKLİ / İZLENECEKLER**
+> **SASA (Skor: 45)** | Trend: NEGATIF
+> *AI Yorumu:* Negatif KAP haberi ve Bollinger alt bandına gerileme nedeniyle kısa vadede riskli.
+
+---
+*Geleceğin yatırım asistanı, bugünden seninle beraber.* 
