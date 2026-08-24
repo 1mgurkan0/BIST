@@ -54,7 +54,7 @@ class Schedule implements ScheduleProviderInterface
             ))
             ->add(RecurringMessage::cron(
                 '0 19 * * 1-5',
-                new RunCommandMessage('app:daily-ai-report --opportunities --opportunity-limit=50'),
+                new RunCommandMessage('app:daily-ai-report --opportunities --opportunity-limit=30'),
                 'Europe/Istanbul'
             ))
         ;

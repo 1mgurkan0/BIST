@@ -62,7 +62,7 @@ class DailyAiReportCommand extends Command
             ->addOption('skip-price-refresh', null, InputOption::VALUE_NONE, 'Mevcut fiyat snapshotini kullan, Yahoo fiyat yenilemesi yapma.')
             ->addOption('symbol', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Sadece verilen sembolleri analiz et.')
             ->addOption('opportunities', null, InputOption::VALUE_NONE, 'Son firsat taramasindaki en guclu adaylari analiz et.')
-            ->addOption('opportunity-limit', null, InputOption::VALUE_OPTIONAL, 'AI analizi yapilacak firsat adayi sayisi.', 50)
+            ->addOption('opportunity-limit', null, InputOption::VALUE_OPTIONAL, 'AI analizi yapilacak firsat adayi sayisi.', 30)
             ->addOption('days', null, InputOption::VALUE_OPTIONAL, 'KAP haberleri icin geriye bakilacak gun sayisi.', self::DEFAULT_DAYS)
             ->addOption('news-limit', null, InputOption::VALUE_OPTIONAL, 'Sembol basina prompta alinacak KAP haberi sayisi.', self::DEFAULT_NEWS_LIMIT)
             ->addOption('delay', null, InputOption::VALUE_OPTIONAL, 'Gemini istekleri arasi bekleme saniyesi.', self::DEFAULT_DELAY);
