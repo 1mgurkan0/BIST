@@ -42,6 +42,7 @@ class DailyAiReportCommand extends Command
         private readonly PortfolioRepository $portfolioRepository,
         private readonly WatchlistItemRepository $watchlistRepository,
         private readonly OpportunityCandidateRepository $opportunityRepository,
+        private readonly \App\Service\BistUniverseService $bistUniverse,
         private readonly KapNewsRepository $kapNewsRepository,
         private readonly AiProviderInterface $aiProvider,
         private readonly TelegramService $telegram,
@@ -61,7 +62,7 @@ class DailyAiReportCommand extends Command
             ->addOption('skip-price-refresh', null, InputOption::VALUE_NONE, 'Mevcut fiyat snapshotini kullan, Yahoo fiyat yenilemesi yapma.')
             ->addOption('symbol', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Sadece verilen sembolleri analiz et.')
             ->addOption('opportunities', null, InputOption::VALUE_NONE, 'Son firsat taramasindaki en guclu adaylari analiz et.')
-            ->addOption('opportunity-limit', null, InputOption::VALUE_OPTIONAL, 'AI analizi yapilacak firsat adayi sayisi.', 5)
+            ->addOption('opportunity-limit', null, InputOption::VALUE_OPTIONAL, 'AI analizi yapilacak firsat adayi sayisi.', 50)
             ->addOption('days', null, InputOption::VALUE_OPTIONAL, 'KAP haberleri icin geriye bakilacak gun sayisi.', self::DEFAULT_DAYS)
             ->addOption('news-limit', null, InputOption::VALUE_OPTIONAL, 'Sembol basina prompta alinacak KAP haberi sayisi.', self::DEFAULT_NEWS_LIMIT)
             ->addOption('delay', null, InputOption::VALUE_OPTIONAL, 'Gemini istekleri arasi bekleme saniyesi.', self::DEFAULT_DELAY);
@@ -249,7 +250,8 @@ class DailyAiReportCommand extends Command
         }
 
         if ($opportunityMode) {
-            return $this->opportunityRepository->latestEligibleSymbols($opportunityLimit);
+            $symbols = $this->bistUniverse->symbols();
+            return $opportunityLimit > 0 ? array_slice($symbols, 0, $opportunityLimit) : $symbols;
         }
 
         return $this->priceSnapshot->trackedSymbols();
@@ -786,71 +788,72 @@ PROMPT;
     {
         usort($reports, fn(AiSymbolReport $a, AiSymbolReport $b): int => $b->getScore() <=> $a->getScore());
 
-        $top = array_slice(array_values(array_filter(
-            $reports,
-            fn(AiSymbolReport $report): bool => in_array($report->getAnalysisStatus(), [AiSymbolReport::ANALYSIS_SUCCESS, AiSymbolReport::ANALYSIS_MOCK], true)
-                && !$report->isPriceStale()
-                && $report->getHistoryStatus() === 'ok'
-                && $report->getConfidence() !== 'dusuk'
-        )), 0, 5);
-        $risk = array_slice(array_values(array_filter(
-            $reports,
-            fn(AiSymbolReport $report): bool => $report->getScore() <= 40
-                || $report->getDecisionLabel() === AiSymbolReport::DECISION_RISKY
-                || $report->isPriceStale()
-                || str_starts_with($report->getAnalysisStatus(), 'fallback_')
-        )), 0, 3);
-        $portfolioWarnings = array_slice(array_values(array_filter(
-            $reports,
-            fn(AiSymbolReport $report): bool => $report->isPortfolio()
-                && ($report->getConfidence() === 'dusuk' || $report->getDecisionLabel() === AiSymbolReport::DECISION_RISKY)
-        )), 0, 5);
+        if ($opportunityMode) {
+            $message = "🎯 <b>BAM BIST Firsat Radari</b>\n\n";
+            
+            $aiConfirmed = array_filter(
+                $reports,
+                fn(AiSymbolReport $r) => $r->getScore() >= 65 && $r->getDecisionLabel() === AiSymbolReport::DECISION_FOLLOW
+            );
+            usort($aiConfirmed, fn($a, $b) => $b->getScore() <=> $a->getScore());
+            
+            $message .= "<b>🔥 AI Onayli Firsatlar (Potansiyel Alim)</b>\n";
+            if (empty($aiConfirmed)) {
+                $message .= "Maalesef bugun yapay zeka tarafindan onaylanan guclu bir firsat bulunamadi.\n";
+            } else {
+                foreach (array_slice($aiConfirmed, 0, 5) as $index => $r) {
+                    $message .= sprintf(
+                        "%d. <b>%s</b> - %d/100 (Guven: %s)\n    <i>%s</i>\n",
+                        $index + 1, $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml($r->getConfidence()),
+                        $this->escapeHtml(mb_substr($r->getShortTerm(), 0, 200))
+                    );
+                }
+            }
 
-        $message = $opportunityMode
-            ? "<b>BAM BIST Firsat Radari</b>\n\n"
-            : "<b>BAM Gun Sonu AI Raporu</b>\n\n";
-        $message .= "<b>En guclu adaylar</b>\n";
-        if (empty($top)) {
-            $message .= "Taze fiyat + tarihce + yeterli guven kosulunu saglayan aday yok.\n";
+            $rejected = array_filter($reports, fn(AiSymbolReport $r) => $r->getScore() < 50);
+            if (!empty($rejected)) {
+                $message .= "\n<b>⚠️ Teknik Iyi Ama AI'dan Gecemeyenler</b>\n";
+                foreach (array_slice($rejected, 0, 3) as $r) {
+                    $message .= sprintf("- <b>%s</b> (%d/100): %s\n", $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml(mb_substr($r->getRiskSummary(), 0, 150)));
+                }
+            }
         } else {
-            foreach ($top as $index => $report) {
-                $message .= sprintf(
-                    "%d. <b>%s</b> - %d/100 - %s - %s - guven %s - KAP %d\n",
-                    $index + 1,
-                    $this->escapeHtml($report->getSymbol()),
-                    $report->getScore(),
-                    $this->escapeHtml($report->trendLabelText()),
-                    $this->escapeHtml($report->decisionLabelText()),
-                    $this->escapeHtml($report->getConfidence()),
-                    count($report->getKapNewsIds())
-                );
+            $message = "📊 <b>BAM Gun Sonu AI Raporu</b>\n\n";
+            
+            $portfolioReports = array_filter($reports, fn(AiSymbolReport $r) => $r->isPortfolio());
+            usort($portfolioReports, fn($a, $b) => $b->getScore() <=> $a->getScore());
+            
+            if (!empty($portfolioReports)) {
+                $message .= "<b>💼 Portfoy Durumu</b>\n";
+                foreach ($portfolioReports as $r) {
+                    $icon = $r->getScore() >= 70 ? '🟢' : ($r->getScore() <= 40 ? '🔴' : '🟡');
+                    $message .= sprintf(
+                        "%s <b>%s</b>: %d/100 - %s\n",
+                        $icon, $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml($r->trendLabelText())
+                    );
+                }
+                $message .= "\n";
             }
-        }
 
-        if (!empty($risk)) {
-            $message .= "\n<b>Riskli izlenecekler</b>\n";
-            foreach ($risk as $index => $report) {
-                $message .= sprintf(
-                    "%d. <b>%s</b> - %d/100 - %s\n",
-                    $index + 1,
-                    $this->escapeHtml($report->getSymbol()),
-                    $report->getScore(),
-                    $this->escapeHtml(mb_substr($report->getRiskSummary(), 0, 280))
-                );
+            $watchlistReports = array_filter($reports, fn(AiSymbolReport $r) => $r->isWatchlist() && !$r->isPortfolio());
+            $watchlistOpportunities = array_filter($watchlistReports, fn(AiSymbolReport $r) => $r->getScore() >= 65);
+            usort($watchlistOpportunities, fn($a, $b) => $b->getScore() <=> $a->getScore());
+
+            if (!empty($watchlistOpportunities)) {
+                $message .= "<b>👀 Takip Listendeki Firsatlar</b>\n";
+                foreach (array_slice($watchlistOpportunities, 0, 5) as $r) {
+                    $message .= sprintf("- <b>%s</b> (%d/100) - %s\n", $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml($r->decisionLabelText()));
+                }
+                $message .= "\n";
             }
-        }
 
-        if (!empty($portfolioWarnings)) {
-            $message .= "\n<b>Portfolio uyarilari</b>\n";
-            foreach ($portfolioWarnings as $report) {
-                $message .= sprintf(
-                    "- <b>%s</b>: %s, guven %s, veri %s/%s\n",
-                    $this->escapeHtml($report->getSymbol()),
-                    $this->escapeHtml($report->decisionLabelText()),
-                    $this->escapeHtml($report->getConfidence()),
-                    $this->escapeHtml($report->getDataStatus()),
-                    $this->escapeHtml($report->getHistoryStatus())
-                );
+            $riskyReports = array_filter($reports, fn(AiSymbolReport $r) => $r->getScore() <= 40 || str_starts_with($r->getAnalysisStatus(), 'fallback_'));
+            if (!empty($riskyReports)) {
+                $message .= "<b>🚨 Riskliler / Hatalilar</b>\n";
+                foreach (array_slice($riskyReports, 0, 3) as $r) {
+                    $msg = str_starts_with($r->getAnalysisStatus(), 'fallback_') ? $r->getRiskSummary() : $r->decisionLabelText();
+                    $message .= sprintf("- <b>%s</b>: %s\n", $this->escapeHtml($r->getSymbol()), $this->escapeHtml(mb_substr($msg, 0, 100)));
+                }
             }
         }
 
