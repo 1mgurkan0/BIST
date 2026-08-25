@@ -11,7 +11,16 @@ class BistUniverseService
     /** @return string[] */
     public function symbols(): array
     {
-        $symbols = preg_split('/[\s,;]+/', strtoupper($this->configuredSymbols), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $symbolString = $this->configuredSymbols;
+        $universeFile = __DIR__ . '/../../var/bist_universe.txt';
+        if (file_exists($universeFile)) {
+            $content = file_get_contents($universeFile);
+            if ($content && strlen(trim($content)) > 10) {
+                $symbolString = trim($content);
+            }
+        }
+
+        $symbols = preg_split('/[\s,;]+/', strtoupper($symbolString), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $normalized = [];
 
         foreach ($symbols as $symbol) {
