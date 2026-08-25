@@ -62,7 +62,7 @@ class DailyAiReportCommand extends Command
             ->addOption('skip-price-refresh', null, InputOption::VALUE_NONE, 'Mevcut fiyat snapshotini kullan, Yahoo fiyat yenilemesi yapma.')
             ->addOption('symbol', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Sadece verilen sembolleri analiz et.')
             ->addOption('opportunities', null, InputOption::VALUE_NONE, 'Son firsat taramasindaki en guclu adaylari analiz et.')
-            ->addOption('opportunity-limit', null, InputOption::VALUE_OPTIONAL, 'AI analizi yapilacak firsat adayi sayisi.', 30)
+            ->addOption('opportunity-limit', null, InputOption::VALUE_OPTIONAL, 'AI analizi yapilacak firsat adayi sayisi.', 5)
             ->addOption('days', null, InputOption::VALUE_OPTIONAL, 'KAP haberleri icin geriye bakilacak gun sayisi.', self::DEFAULT_DAYS)
             ->addOption('news-limit', null, InputOption::VALUE_OPTIONAL, 'Sembol basina prompta alinacak KAP haberi sayisi.', self::DEFAULT_NEWS_LIMIT)
             ->addOption('delay', null, InputOption::VALUE_OPTIONAL, 'Gemini istekleri arasi bekleme saniyesi.', self::DEFAULT_DELAY);
@@ -250,8 +250,7 @@ class DailyAiReportCommand extends Command
         }
 
         if ($opportunityMode) {
-            $symbols = $this->bistUniverse->symbols();
-            return $opportunityLimit > 0 ? array_slice($symbols, 0, $opportunityLimit) : $symbols;
+            return $this->opportunityRepository->latestEligibleSymbols($opportunityLimit);
         }
 
         return $this->priceSnapshot->trackedSymbols();
@@ -802,19 +801,27 @@ PROMPT;
                 $message .= "Maalesef bugun yapay zeka tarafindan onaylanan guclu bir firsat bulunamadi.\n";
             } else {
                 foreach (array_slice($aiConfirmed, 0, 5) as $index => $r) {
+                    $shortTerm = mb_strlen($r->getShortTerm()) > 1024 
+                        ? mb_substr($r->getShortTerm(), 0, 1020) . '...' 
+                        : $r->getShortTerm();
                     $message .= sprintf(
                         "%d. <b>%s</b> - %d/100 (Guven: %s)\n    <i>%s</i>\n",
                         $index + 1, $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml($r->getConfidence()),
-                        $this->escapeHtml(mb_substr($r->getShortTerm(), 0, 200))
+                        $this->escapeHtml($shortTerm)
                     );
                 }
             }
 
-            $rejected = array_filter($reports, fn(AiSymbolReport $r) => $r->getScore() < 50);
+            $rejected = array_filter($reports, function(AiSymbolReport $r) use ($aiConfirmed) {
+                return !in_array($r, $aiConfirmed, true);
+            });
             if (!empty($rejected)) {
-                $message .= "\n<b>⚠️ Teknik Iyi Ama AI'dan Gecemeyenler</b>\n";
-                foreach (array_slice($rejected, 0, 3) as $r) {
-                    $message .= sprintf("- <b>%s</b> (%d/100): %s\n", $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml(mb_substr($r->getRiskSummary(), 0, 150)));
+                $message .= "\n<b>⚠️ Teknik Iyi Ama AI'dan Gecemeyenler / Nötrler</b>\n";
+                foreach ($rejected as $r) {
+                    $summary = mb_strlen($r->getRiskSummary()) > 1024 
+                        ? mb_substr($r->getRiskSummary(), 0, 1020) . '...' 
+                        : $r->getRiskSummary();
+                    $message .= sprintf("- <b>%s</b> (%d/100): %s\n", $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml($summary));
                 }
             }
         } else {
