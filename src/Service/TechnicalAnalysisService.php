@@ -62,6 +62,14 @@ class TechnicalAnalysisService
             ? 'pozitif'
             : ($bearishSignals >= $bullishSignals + 2 ? 'negatif' : 'notr');
 
+        // Calculate slopes (difference over the last 3-45 days)
+        $rsi14_prev = count($closes) > 17 ? $this->rsi(array_slice($closes, 0, -3), 14) : $rsi14;
+        $rsi14_slope = $rsi14 !== null && $rsi14_prev !== null ? $rsi14 - $rsi14_prev : 0;
+        
+        $sma20_prev = count($closes) > 25 ? $this->sma(array_slice($closes, 0, -5), 20) : $sma20;
+        $sma50_prev = count($closes) > 65 ? $this->sma(array_slice($closes, 0, -15), 50) : $sma50;
+        $sma200_prev = count($closes) > 245 ? $this->sma(array_slice($closes, 0, -45), 200) : $sma200;
+
         return [
             'status' => 'ok',
             'bars' => $count,
@@ -81,8 +89,12 @@ class TechnicalAnalysisService
                 '20' => $this->round($sma20),
                 '50' => $this->round($sma50),
                 '200' => $this->round($sma200),
+                '20_slope' => $sma20 !== null && $sma20_prev !== null ? $this->round((($sma20 / $sma20_prev) - 1) * 100) : 0,
+                '50_slope' => $sma50 !== null && $sma50_prev !== null ? $this->round((($sma50 / $sma50_prev) - 1) * 100) : 0,
+                '200_slope' => $sma200 !== null && $sma200_prev !== null ? $this->round((($sma200 / $sma200_prev) - 1) * 100) : 0,
             ],
             'rsi14' => $this->round($rsi14),
+            'rsi14_slope' => $this->round($rsi14_slope),
             'macd' => [
                 'value' => $this->round($macd['value']),
                 'signal' => $this->round($macd['signal']),

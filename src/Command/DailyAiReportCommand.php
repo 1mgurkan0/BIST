@@ -62,7 +62,7 @@ class DailyAiReportCommand extends Command
             ->addOption('skip-price-refresh', null, InputOption::VALUE_NONE, 'Mevcut fiyat snapshotini kullan, Yahoo fiyat yenilemesi yapma.')
             ->addOption('symbol', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Sadece verilen sembolleri analiz et.')
             ->addOption('opportunities', null, InputOption::VALUE_NONE, 'Son firsat taramasindaki en guclu adaylari analiz et.')
-            ->addOption('opportunity-limit', null, InputOption::VALUE_OPTIONAL, 'AI analizi yapilacak firsat adayi sayisi.', 5)
+            ->addOption('opportunity-limit', null, InputOption::VALUE_OPTIONAL, 'AI analizi yapilacak firsat adayi sayisi.', 10)
             ->addOption('days', null, InputOption::VALUE_OPTIONAL, 'KAP haberleri icin geriye bakilacak gun sayisi.', self::DEFAULT_DAYS)
             ->addOption('news-limit', null, InputOption::VALUE_OPTIONAL, 'Sembol basina prompta alinacak KAP haberi sayisi.', self::DEFAULT_NEWS_LIMIT)
             ->addOption('delay', null, InputOption::VALUE_OPTIONAL, 'Gemini istekleri arasi bekleme saniyesi.', self::DEFAULT_DELAY);
@@ -163,7 +163,7 @@ class DailyAiReportCommand extends Command
                 $errors++;
                 $fallbacks++;
                 $rawResponse = 'AI error: ' . $e->getMessage();
-                $aiData = $this->fallbackAiResult($symbol, $priceItem, $kapNews, 'Gemini yaniti alinamadi.');
+                $aiData = $this->fallbackAiResult($symbol, $priceItem, $kapNews, 'Yapay Zeka (AI) yaniti alinamadi.');
                 $analysisStatus = AiSymbolReport::ANALYSIS_FALLBACK_ERROR;
 
                 $this->logger->error('Daily AI report failed for symbol.', [
@@ -327,7 +327,7 @@ class DailyAiReportCommand extends Command
             }
 
             return [
-                $this->fallbackAiResult($symbol, $priceItem, $kapNews, 'Gemini JSON formati bozuk geldi.'),
+                $this->fallbackAiResult($symbol, $priceItem, $kapNews, 'AI JSON formati bozuk geldi.'),
                 $rawResponse . "\n\nRETRY:\n" . $retryResponse,
                 AiSymbolReport::ANALYSIS_FALLBACK_JSON,
             ];
@@ -345,12 +345,21 @@ class DailyAiReportCommand extends Command
         $priceText = $this->priceText($priceItem);
         $technicalText = $this->technicalText($technical, $history);
         $newsText = $this->kapNewsText($kapNews);
+        
+        // Fetch candidate score and reasons to inject into the prompt
+        $candidate = $this->opportunityRepository->findOneBy(['symbol' => $symbol], ['createdAt' => 'DESC']);
+        $systemScore = $candidate ? $candidate->getScore() : 50;
+        $systemReasons = $candidate && $candidate->getReasons() ? implode(', ', $candidate->getReasons()) : 'Veri yok';
 
         return <<<PROMPT
-Sen BIST odakli, dengeli risk karakterinde calisan kisisel bir karar destek analistisin.
+Sen BIST odakli, 'dipten donus' stratejisi uygulayan kisisel bir karar destek analistisin. 
+Amacin fiyati zaten ucmus/asiri isinmis hisseleri DEGIL; duzeltme yasamis, ana desteklere (SMA50/SMA200) yaklasmis ve YENI toparlanma sinyali veren hisseleri erken tespit etmektir.
 Kesin al/sat emri verme. Amacin sembolu gunluk, kisa, orta ve uzun vade icin elemek; riskleri ve firsatlari netlestirmektir.
 
 SEMBOL: {$symbol}
+
+SISTEM_SKORU (algoritmamizin sonucu, 0-100): {$systemScore}
+SISTEM_GEREKCELERI: {$systemReasons}
 
 FIYAT SNAPSHOT:
 {$priceText}
@@ -363,6 +372,8 @@ SON KAP HABERLERI:
 
 Kurallar:
 - Skor 0-100 arasi firsat skorudur. 0 cok zayif/riskli, 50 notr, 100 cok guclu.
+- Bir hisse RSI > 65 ve/veya SMA20'nin %7+ uzerindeyse: bu hisseyi 'gec kalinmis/riskli' say, kendi skorun 55'i GECMESIN - trend ne kadar guclu gorunurse gorunsun. En yuksek skorlar (70+) sadece, hissenin SU AN destekten YENI donmeye basladigi senaryolar icindir.
+- SISTEM_SKORU ve SISTEM_GEREKCELERI'ni yok sayma, kendi firsat skorunu olustururken ana referans noktasi olarak kullan. Kendi yorumun sistemden belirgin farkliysa, risk_summary alaninda bu farki acikca belirt ve nedenini yaz.
 - trend sadece su degerlerden biri olsun: negatif, notr, pozitif
 - decision sadece su degerlerden biri olsun: takip_et, bekle, riskli
 - confidence sadece su degerlerden biri olsun: dusuk, orta, yuksek

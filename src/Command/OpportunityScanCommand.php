@@ -73,7 +73,13 @@ class OpportunityScanCommand extends Command
             return Command::INVALID;
         }
 
-        $historyMap = $this->historyService->fetchBatch($symbols);
+        // Fetch XU100 for index trend filter
+        $fetchSymbols = array_unique(array_merge($symbols, ['XU100']));
+        $historyMap = $this->historyService->fetchBatch($fetchSymbols);
+        
+        $xu100History = $historyMap['XU100'] ?? [];
+        $xu100Technical = $this->technicalAnalysis->analyze(is_array($xu100History['bars'] ?? null) ? $xu100History['bars'] : []);
+
         $candidates = [];
         foreach ($symbols as $symbol) {
             $history = $historyMap[$symbol] ?? [
@@ -83,6 +89,8 @@ class OpportunityScanCommand extends Command
                 'bars' => [],
             ];
             $technical = $this->technicalAnalysis->analyze(is_array($history['bars'] ?? null) ? $history['bars'] : []);
+            $technical['xu100'] = $xu100Technical; // Inject XU100 data
+
             $result = $this->scoring->score($technical, $history);
 
             $candidate = (new OpportunityCandidate())

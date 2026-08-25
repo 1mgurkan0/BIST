@@ -48,13 +48,23 @@ class Schedule implements ScheduleProviderInterface
                 'Europe/Istanbul'
             ))
             ->add(RecurringMessage::cron(
-                '40 18 * * 1-5',
+                '30 10,14,16 * * 1-5', // Sabah 10:30, 14:30, 16:30
                 new RunCommandMessage('app:opportunities:scan'),
                 'Europe/Istanbul'
             ))
             ->add(RecurringMessage::cron(
-                '0 19 * * 1-5',
-                new RunCommandMessage('app:daily-ai-report --opportunities --opportunity-limit=5'),
+                '15 18 * * 1-5', // Kapanış (18:15)
+                new RunCommandMessage('app:opportunities:scan'),
+                'Europe/Istanbul'
+            ))
+            ->add(RecurringMessage::cron(
+                '35 10,14,16 * * 1-5', // Scan'den 5 dk sonra AI raporu
+                new RunCommandMessage('app:daily-ai-report --opportunities'),
+                'Europe/Istanbul'
+            ))
+            ->add(RecurringMessage::cron(
+                '20 18 * * 1-5', // Kapanış Scan'inden 5 dk sonra AI raporu
+                new RunCommandMessage('app:daily-ai-report --opportunities'),
                 'Europe/Istanbul'
             ))
         ;
