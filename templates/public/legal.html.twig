@@ -1,0 +1,24 @@
+﻿{% extends "base.html.twig" %}
+{% block title %}Yasal Uyarı - BAM Terminal{% endblock %}
+{% block meta_description %}BAM Terminal kullanımına dair yasal uyarılar ve yatırım tavsiyesi red beyanı.{% endblock %}
+{% block robots %}noindex, follow{% endblock %}
+{% block content %}
+<div class="container py-5 mt-5 text-light">
+    <h1 class="text-center mb-4">Yasal Uyarı</h1>
+    
+    <div class="card-custom p-4 shadow-sm border-secondary text-secondary lh-lg" style="font-size: 0.95rem;">
+        <p class="mb-3">
+            <strong>1. Yatırım Danışmanlığı Kapsamında Değildir:</strong> BAM (Borsa Analiz Motoru) Terminal platformunda yer alan her türlü bilgi, değerlendirme, yorum, istatistiki şekil ve bilgiler hazırlandığı tarih itibarıyla mevcut piyasa koşulları ve güvenilirliğine inanılan kaynaklardan elde edilerek derlenmiştir. Sunulan hiçbir analiz, sistem skoru veya yapay zeka çıkarımı, SPK mevzuatı gereğince yatırım danışmanlığı hizmeti veya portföy yönetimi kapsamında değerlendirilemez.
+        </p>
+        
+        <p class="mb-3">
+            <strong>2. Yatırım Kararları ve Risk Sorumluluğu:</strong> Sitede yer alan bilgilere dayanarak alınacak yatırım kararları ve gerçekleştirilecek alım satım işlemlerinin tüm riski münhasıran kullanıcıya aittir. Buradaki veriler ışığında yapılan işlemlerden doğabilecek doğrudan veya dolaylı maddi/manevi zararlardan BAM Terminal, yöneticileri veya çalışanları hiçbir şekilde sorumlu tutulamaz.
+        </p>
+        
+        <p class="mb-0">
+            <strong>3. Veri Doğruluğu ve Gecikme:</strong> Platformda sunulan finansal veriler (fiyatlar, oranlar, haberler) dış kaynaklardan sağlanmakta olup gecikmeli olabilir. BAM Terminal, algoritmaların teknik hesaplamalarında veya veri sağlayıcı kaynaklı hatalarda, eksikliklerde veya gecikmelerde doğruluk ve kesintisizlik garantisi vermez. 
+        </p>
+    </div>
+</div>
+{% endblock %}
+

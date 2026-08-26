@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /portfolio
+Disallow: /watchlist
+Disallow: /ai-reports
+Disallow: /api/
+Allow: /
+
+Sitemap: https://www.bamterminal.com.tr/sitemap.xml

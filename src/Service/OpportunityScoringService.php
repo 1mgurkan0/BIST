@@ -78,6 +78,22 @@ class OpportunityScoringService
             $reasons[] = "Fiyat SMA{$period}'ye yakın ama ortalama eğimi negatif (düşüş trendi).";
         }
 
+        // 2b. Yapisal Dusus Trendi Cezasi (kademeli)
+        // Ceza degerleri kesin degil, baslangic tahmini - ileride backtest yaparken kalibre edilecek
+        if ($sma50 > 0 && $sma200 > 0 && $lastClose < $sma50 && $lastClose < $sma200) {
+            $distanceFromSma200 = ($sma200 - $lastClose) / $sma200;
+            if ($distanceFromSma200 > 0.15) {
+                $score -= 30;
+                $reasons[] = 'Fiyat SMA200den %15+ asagida - derin yapisal dusus, kisa vadeli sinyaller (RSI/MACD) guvenilmez.';
+            } elseif ($distanceFromSma200 > 0.07) {
+                $score -= 18;
+                $reasons[] = 'Fiyat SMA50/200un belirgin altinda - yapisal dusus trendi, kisa vadeli sinyaller (RSI/MACD) zayif teyit sayilmali.';
+            } else {
+                $score -= 10;
+                $reasons[] = 'Fiyat SMA50/200un hafif altinda - yapi henuz tam toparlanmamis.';
+            }
+        }
+
         // 3. RSI Yorumlaması
         $rsi = $this->number($technical['rsi14'] ?? null, 50);
         $rsiSlope = $this->number($technical['rsi14_slope'] ?? null);
