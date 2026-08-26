@@ -28,13 +28,13 @@ class OpportunityScoringService
             $distanceFromSma20 = ($lastClose - $sma20) / $sma20;
             if ($distanceFromSma20 > 0.15) {
                 $score -= 25;
-                $reasons[] = 'Fiyat SMA20den aşırı uzaklaşmış (%15+), çok şişmiş.';
+                $reasons[] = sprintf('Fiyat SMA20den %%%.1f yukarida (esik: %%15 uzeri) - asiri uzaklasmis ve cok sismis.', $distanceFromSma20 * 100);
             } elseif ($distanceFromSma20 > 0.10) {
                 $score -= 20;
-                $reasons[] = 'Fiyat kısa vadeli ortalamadan çok uzaklaşmış (şişmiş).';
+                $reasons[] = sprintf('Fiyat SMA20den %%%.1f yukarida (esik: %%10-15 arasi) - kisa vadeli ortalamadan uzaklasmis (sismis).', $distanceFromSma20 * 100);
             } elseif ($distanceFromSma20 > 0.07) {
                 $score -= 10;
-                $reasons[] = 'Fiyat SMA20den belirgin uzaklaşmaya başlıyor.';
+                $reasons[] = sprintf('Fiyat SMA20den %%%.1f yukarida (esik: %%7-10 arasi) - belirgin uzaklasmaya basliyor.', $distanceFromSma20 * 100);
             }
         }
 
@@ -46,6 +46,7 @@ class OpportunityScoringService
 
         $validSupports = [];
         $invalidSupports = [];
+        $distances = [];
         // Bu esik degerleri (-0.8 / -1.5) kesin degil, baslangic tahmini - ileride backtest yaparken kalibre edilecek
         $slopeThresholds = ['50' => -0.8, '200' => -1.5]; 
 
@@ -56,6 +57,7 @@ class OpportunityScoringService
             if ($average > 0) {
                 $distance = abs($lastClose - $average) / $average;
                 if ($distance <= 0.03) {
+                    $distances[$period] = ['dist' => $distance, 'slope' => $slope];
                     if ($slope > $slopeThresholds[$period]) { // Yatay veya yükseliyorsa
                         $validSupports[] = $period;
                     } else { // Düşen eğimdeyse destek sayılmaz
@@ -67,15 +69,20 @@ class OpportunityScoringService
 
         if (count($validSupports) === 2) {
             $score += 20;
-            $reasons[] = 'Cift ana destek (SMA50+SMA200) cakismasi - guclu bolge.';
+            $reasons[] = sprintf('Cift ana destek (SMA50+SMA200) cakismasi - guclu bolge (SMA50 mesafe: %%%.1f egim: %%%.1f, SMA200 mesafe: %%%.1f egim: %%%.1f).', 
+                $distances['50']['dist'] * 100, $distances['50']['slope'], 
+                $distances['200']['dist'] * 100, $distances['200']['slope']);
         } elseif (count($validSupports) === 1) {
             $score += 15;
-            $reasons[] = "Ana desteğe (SMA{$validSupports[0]}) yakın ve destek eğimi pozitif, tepki potansiyeli yüksek.";
+            $p = $validSupports[0];
+            $reasons[] = sprintf('Ana destege (SMA%s) %%%.1f yakinlikta ve destek egimi %%%.1f (pozitif) - tepki potansiyeli yüksek.', 
+                $p, $distances[$p]['dist'] * 100, $distances[$p]['slope']);
         }
 
         foreach ($invalidSupports as $period) {
             $score -= 5;
-            $reasons[] = "Fiyat SMA{$period}'ye yakın ama ortalama eğimi negatif (düşüş trendi).";
+            $reasons[] = sprintf('Fiyat SMA%s\'ye %%%.1f yakinlikta ama ortalama egimi %%%.1f (düsüs trendi) - destek gecersiz.', 
+                $period, $distances[$period]['dist'] * 100, $distances[$period]['slope']);
         }
 
         // 2b. Yapisal Dusus Trendi Cezasi (kademeli)
@@ -84,13 +91,13 @@ class OpportunityScoringService
             $distanceFromSma200 = ($sma200 - $lastClose) / $sma200;
             if ($distanceFromSma200 > 0.15) {
                 $score -= 30;
-                $reasons[] = 'Fiyat SMA200den %15+ asagida - derin yapisal dusus, kisa vadeli sinyaller (RSI/MACD) guvenilmez.';
+                $reasons[] = sprintf('Fiyat SMA200den %%%.1f asagida (esik: %%15 uzeri) - derin yapisal dusus, kisa vadeli sinyaller (RSI/MACD) guvenilmez.', $distanceFromSma200 * 100);
             } elseif ($distanceFromSma200 > 0.07) {
                 $score -= 18;
-                $reasons[] = 'Fiyat SMA50/200un belirgin altinda - yapisal dusus trendi, kisa vadeli sinyaller (RSI/MACD) zayif teyit sayilmali.';
+                $reasons[] = sprintf('Fiyat SMA200den %%%.1f asagida (esik: %%7-15 arasi) - yapisal dusus trendi, kisa vadeli sinyaller zayif teyit sayilmali.', $distanceFromSma200 * 100);
             } else {
                 $score -= 10;
-                $reasons[] = 'Fiyat SMA50/200un hafif altinda - yapi henuz tam toparlanmamis.';
+                $reasons[] = sprintf('Fiyat SMA200den %%%.1f asagida (esik: %%7 alti) - yapi henuz tam toparlanmamis.', $distanceFromSma200 * 100);
             }
         }
 
@@ -100,21 +107,21 @@ class OpportunityScoringService
 
         if ($rsi > 75) {
             $score -= 15;
-            $reasons[] = 'RSI aşırı alım bölgesinde, düzeltme riski var.';
+            $reasons[] = sprintf('RSI %.1f (esik: 75 uzeri) - asiri alim bolgesinde, duzeltme riski var.', $rsi);
         } elseif ($rsi > 65) {
             $score -= 5;
-            $reasons[] = 'RSI ısınma bölgesine girmiş (65-75), dikkatli olunmalı.';
+            $reasons[] = sprintf('RSI %.1f (esik: 65-75 arasi) - isinma bolgesine girmis, dikkatli olunmali.', $rsi);
         } elseif ($rsi >= 30 && $rsi <= 45) {
             if ($rsiSlope > 0) { // Dibi görüp dönüyorsa
                 $score += 15;
-                $reasons[] = 'RSI aşırı satımdan dönüyor, toparlanma sinyali.';
+                $reasons[] = sprintf('RSI %.1f (esik: 30-45 arasi) ve egimi %.1f - asiri satimdan donuyor, toparlanma sinyali.', $rsi, $rsiSlope);
             } else { // Düşüyor veya yataysa
                 $score += 5;
-                $reasons[] = 'RSI aşırı satım bölgesinde (dönüş zayıf).';
+                $reasons[] = sprintf('RSI %.1f (esik: 30-45 arasi) ve egimi %.1f - asiri satim bolgesinde ama donus zayif.', $rsi, $rsiSlope);
             }
         } elseif ($rsi < 30) {
             $score += 5;
-            $reasons[] = 'RSI dipte sürünüyor, çok ucuz.';
+            $reasons[] = sprintf('RSI %.1f (esik: 30 alti) - dipte surunuyor, cok ucuz.', $rsi);
         } elseif ($rsi > 45 && $rsi <= 65) {
             $score += 5;
         }
@@ -123,7 +130,7 @@ class OpportunityScoringService
         $volumeRatio = $this->number($technical['volumeRatio20'] ?? null, 1);
         if ($volumeRatio >= 1.2) {
             $score += 10;
-            $reasons[] = 'Hacim ortalamanın belirgin üzerinde (teyit).';
+            $reasons[] = sprintf('Hacim, 20 gunluk ortalamanin %.2f kati (esik: 1.2 kati uzeri) - hacim teyidi var.', $volumeRatio);
         }
 
         // 5. MACD Momentum Teyidi
@@ -131,7 +138,7 @@ class OpportunityScoringService
         $histogram = $this->number($macd['histogram'] ?? null);
         if ($histogram > 0) {
             $score += 10; // Daha önce 5'ti, şimdi 10 (teyit olarak daha değerli)
-            $reasons[] = 'MACD momentumu pozitif.';
+            $reasons[] = sprintf('MACD momentumu pozitif (Histogram: %.3f).', $histogram);
         } elseif ($histogram < 0) {
             $score -= 5;
         }
@@ -143,12 +150,13 @@ class OpportunityScoringService
         $xu100_sma50Slope = $this->number($xu100['sma']['50_slope'] ?? null);
         
         if ($xu100_last > 0 && $xu100_sma50 > 0) {
+            $xuDist = (($xu100_last - $xu100_sma50) / $xu100_sma50) * 100;
             if ($xu100_last < $xu100_sma50 && $xu100_sma50Slope < 0) {
                 $score -= 10;
-                $reasons[] = 'Endeks (XU100) düşüş trendinde, sistemik risk yüksek.';
+                $reasons[] = sprintf('Endeks (XU100) SMA50nin %%%.1f altinda ve egim negatif - sistemik risk yuksek.', abs($xuDist));
             } elseif ($xu100_last > $xu100_sma50 && $xu100_sma50Slope > 0) {
                 $score += 5;
-                $reasons[] = 'Endeks (XU100) yükseliş trendinde (rüzgar arkada).';
+                $reasons[] = sprintf('Endeks (XU100) SMA50nin %%%.1f uzerinde ve egim pozitif - ruzgar arkada.', $xuDist);
             }
         }
 

@@ -154,14 +154,14 @@
                     <th class="text-end">Toplam Değer</th>
                     <th class="text-end">Günlük Değişim</th>
                     <th class="text-end">K/Z Durumu</th>
-                    <th class="text-center">BAM AI</th>
+                    {# <th class="text-center">BAM AI</th> #}
                     <th class="text-center pe-4">İşlem</th>
                 </tr>
                 </thead>
                 <tbody id="portfolio-tbody">
                 {% if items is empty %}
                     <tr>
-                        <td colspan="9" class="text-center text-secondary py-5">
+                        <td colspan="8" class="text-center text-secondary py-5">
                             <i class="bi bi-inbox fs-1 d-block mb-3"></i>
                             <span class="fs-5">Portföyünüzde henüz hisse bulunmuyor</span>
                             <p class="text-secondary mt-2">Yukarıdaki formdan hisse ekleyebilirsiniz.</p>
@@ -215,6 +215,7 @@
                                     {{ pLossPct|number_format(2, ',', '.') }}%
                                 </small>
                             </td>
+                            {# 
                             <td class="text-center">
                                 {% if item.sentimentScore is null %}
                                     <form method="post" action="{{ path('portfolio_analyze', {id: item.id}) }}" class="d-inline">
@@ -246,6 +247,7 @@
                                     </form>
                                 {% endif %}
                             </td>
+                            #}
                             <td class="text-center pe-4">
                                 <button type="button" class="btn btn-sm btn-outline-warning border-0"
                                         data-bs-toggle="modal" data-bs-target="#editStockModal"
