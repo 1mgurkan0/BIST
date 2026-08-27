@@ -99,7 +99,7 @@ class MarketController extends AbstractController
             );
         }
 
-        return $this->render('base.html.twig', [
+        return $this->render('market/index.html.twig', [
             'stock' => $stock,
             'symbol' => $symbol,
             'newsList' => $newsList,

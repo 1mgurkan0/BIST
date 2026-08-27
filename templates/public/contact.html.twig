@@ -1,12 +1,176 @@
 {% extends "base.html.twig" %}
-{% block title %}Iletisim - BAM Terminal{% endblock %}
-{% block meta_description %}BAM Terminal ekibiyle iletisime ge�in, soru ve �nerilerinizi bizimle paylasin.{% endblock %}
-{% block robots %}noindex, follow{% endblock %}
+{% block title %}İletişim - BAM Terminal{% endblock %}
+{% block meta_description %}BAM Terminal ekibiyle iletişime geçin, soru ve önerilerinizi bizimle paylaşın.{% endblock %}
+
 {% block content %}
-<div class="container py-5 mt-5 text-light text-center">
-    <h1>Iletisim</h1>
-    <p class="lead mt-3 text-secondary">I�erik yakinda eklenecektir.</p>
+<style>
+    .contact-gradient-text {
+        background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .form-control-dark {
+        background-color: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    .form-control-dark:focus {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-color: #f59e0b;
+        box-shadow: 0 0 0 0.25rem rgba(245, 158, 11, 0.25);
+        color: #fff;
+    }
+    .form-floating > label {
+        color: rgba(255, 255, 255, 0.5);
+    }
+    .form-floating > .form-control-dark:focus ~ label,
+    .form-floating > .form-control-dark:not(:placeholder-shown) ~ label {
+        color: #f59e0b;
+        background-color: transparent;
+        transform: scale(0.85) translateY(-1.5rem) translateX(-0.15rem);
+    }
+    .contact-info-card {
+        background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 1rem;
+    }
+    .contact-icon-box {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(245, 158, 11, 0.1);
+        border-radius: 12px;
+        color: #f59e0b;
+    }
+</style>
+
+<div class="container py-5 mt-4 text-light">
+    
+    <div class="row align-items-center mb-5 pb-3">
+        <div class="col-12 text-center">
+            <span class="badge bg-warning text-dark mb-3 px-3 py-2 rounded-pill tracking-widest fw-bold">7/24 DESTEK</span>
+            <h1 class="display-4 fw-bold mb-3">Bizimle <span class="contact-gradient-text">İletişime Geçin</span></h1>
+            <p class="lead text-secondary mx-auto" style="max-width: 600px;">
+                BAM Terminal hakkında merak ettikleriniz, önerileriniz veya işbirliği talepleriniz için bize yazmaktan çekinmeyin.
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-5 justify-content-center">
+        <!-- İletişim Bilgileri (Sol Sütun) -->
+        <div class="col-lg-4 col-md-10">
+            <div class="contact-info-card p-4 p-md-5 h-100 shadow-lg">
+                <h4 class="fw-bold mb-4">İletişim Bilgileri</h4>
+                <p class="text-secondary mb-5">Mesajlarınıza en kısa sürede dönüş yapılacaktır.</p>
+
+                <div class="d-flex align-items-center mb-4">
+                    <div class="contact-icon-box flex-shrink-0 me-3">
+                        <i class="bi bi-envelope-paper fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase tracking-widest text-secondary small mb-1">E-Posta</h6>
+                        <a href="mailto:muhammedgurkanaltunbas@gmail.com" class="text-light text-decoration-none fw-bold fs-6 custom-badge-hover" style="word-break: break-all;">
+                            muhammedgurkanaltunbas@gmail.com
+                        </a>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center mb-4">
+                    <div class="contact-icon-box flex-shrink-0 me-3">
+                        <i class="bi bi-linkedin fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase tracking-widest text-secondary small mb-1">LinkedIn</h6>
+                        <a href="https://www.linkedin.com/in/muhammed-g%C3%BCrkan-altunba%C5%9F-992ab0347/" target="_blank" class="text-light text-decoration-none fw-bold fs-6 custom-badge-hover">
+                            Muhammed Gürkan Altunbaş
+                        </a>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center">
+                    <div class="contact-icon-box flex-shrink-0 me-3">
+                        <i class="bi bi-geo-alt fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase tracking-widest text-secondary small mb-1">Konum</h6>
+                        <span class="text-light fw-bold fs-5">Çorum, Türkiye</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- İletişim Formu (Sağ Sütun) -->
+        <div class="col-lg-6 col-md-10">
+            <div class="card-custom p-4 p-md-5 h-100 shadow-lg border-secondary" style="border-radius: 1rem;">
+                
+                <h4 class="fw-bold mb-4">Mesaj Gönder</h4>
+
+                {% if success is defined and success %}
+                    <div class="alert alert-success bg-success bg-opacity-10 border-success text-success d-flex align-items-center mb-4 rounded-3 p-3" role="alert">
+                        <i class="bi bi-check-circle-fill fs-3 me-3"></i>
+                        <div>
+                            <strong class="d-block mb-1">Mesajınız başarıyla iletildi!</strong>
+                            <span class="small">En kısa sürede e-posta adresiniz üzerinden size dönüş yapacağız.</span>
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if error is defined and error %}
+                    <div class="alert alert-danger bg-danger bg-opacity-10 border-danger text-danger d-flex align-items-center mb-4 rounded-3 p-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-3 me-3"></i>
+                        <div>{{ error }}</div>
+                    </div>
+                {% endif %}
+
+                <form method="POST" action="{{ path('app_contact') }}" class="needs-validation" novalidate>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="text" class="form-control form-control-dark" id="firstName" name="firstName" required placeholder="Adınız">
+                                <label for="firstName"><i class="bi bi-person me-1"></i>Adınız</label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                <input type="text" class="form-control form-control-dark" id="lastName" name="lastName" required placeholder="Soyadınız">
+                                <label for="lastName"><i class="bi bi-person me-1"></i>Soyadınız</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-floating">
+                                <input type="email" class="form-control form-control-dark" id="email" name="email" required placeholder="name@example.com">
+                                <label for="email"><i class="bi bi-at me-1"></i>E-Posta Adresiniz</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-floating">
+                                <input type="text" class="form-control form-control-dark" id="subject" name="subject" required placeholder="Konu">
+                                <label for="subject"><i class="bi bi-chat-left-text me-1"></i>Konu</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-floating">
+                                <textarea class="form-control form-control-dark" id="message" name="message" style="height: 150px" required placeholder="Mesajınız..."></textarea>
+                                <label for="message"><i class="bi bi-pencil-square me-1"></i>Mesajınızı buraya yazın...</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12 mt-4 pt-2">
+                            <button type="submit" class="btn btn-warning w-100 py-3 fw-bold text-uppercase rounded-3 transition-all" style="letter-spacing: 1.5px;">
+                                <i class="bi bi-send-fill me-2"></i> Mesajı Gönder
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
-
-
