@@ -28,7 +28,7 @@ security:
 
       remember_me:
         secret: '%kernel.secret%'
-        lifetime: 604800   # 7 gün (saniye)
+        lifetime: 1800   # 30 dakika (saniye)
         path: /
         secure: auto
         httponly: true

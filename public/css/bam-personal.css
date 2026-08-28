@@ -113,7 +113,6 @@ body.bam-page {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    max-width: 290px;
     padding: 7px 10px;
     border: 1px solid rgba(148, 163, 184, .18);
     border-radius: 8px;

@@ -8,7 +8,8 @@ framework:
         cookie_httponly: true
         cookie_samesite: lax
         cookie_secure: auto
-        gc_maxlifetime: 604800
+        cookie_lifetime: 1800
+        gc_maxlifetime: 1800
 
     php_errors:
         log: true

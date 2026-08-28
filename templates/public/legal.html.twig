@@ -1,24 +1,152 @@
-﻿{% extends "base.html.twig" %}
+{% extends "base.html.twig" %}
 {% block title %}Yasal Uyarı - BAM Terminal{% endblock %}
 {% block meta_description %}BAM Terminal kullanımına dair yasal uyarılar ve yatırım tavsiyesi red beyanı.{% endblock %}
 {% block robots %}noindex, follow{% endblock %}
+
 {% block content %}
-<div class="container py-5 mt-5 text-light">
-    <h1 class="text-center mb-4">Yasal Uyarı</h1>
-    
-    <div class="card-custom p-4 shadow-sm border-secondary text-secondary lh-lg" style="font-size: 0.95rem;">
-        <p class="mb-3">
-            <strong>1. Yatırım Danışmanlığı Kapsamında Değildir:</strong> BAM (Borsa Analiz Motoru) Terminal platformunda yer alan her türlü bilgi, değerlendirme, yorum, istatistiki şekil ve bilgiler hazırlandığı tarih itibarıyla mevcut piyasa koşulları ve güvenilirliğine inanılan kaynaklardan elde edilerek derlenmiştir. Sunulan hiçbir analiz, sistem skoru veya yapay zeka çıkarımı, SPK mevzuatı gereğince yatırım danışmanlığı hizmeti veya portföy yönetimi kapsamında değerlendirilemez.
-        </p>
+<style>
+    .legal-hero {
+        background-color: #111827;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .legal-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .legal-card {
+        background: #1f2937;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 2.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    .legal-section {
+        margin-bottom: 2.5rem;
+        padding-bottom: 2.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .legal-section:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+    .legal-title {
+        color: #f3f4f6;
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .legal-title i {
+        color: #f59e0b;
+        font-size: 1.5rem;
+    }
+    .legal-text {
+        color: #9ca3af;
+        line-height: 1.8;
+        font-size: 0.95rem;
+    }
+    .spk-alert {
+        background-color: rgba(220, 38, 38, 0.1);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+        color: #fca5a5;
+        border-radius: 8px;
+        padding: 1.25rem;
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    .spk-alert i {
+        font-size: 1.5rem;
+        color: #ef4444;
+        margin-top: 0.1rem;
+    }
+</style>
+
+<!-- Hero Kısmı -->
+<div class="legal-hero py-5 mt-4">
+    <div class="container text-center text-light">
+        <h1 class="display-5 fw-bold mb-3">Yasal Uyarı ve Sorumluluk Beyanı</h1>
+        <p class="text-secondary mb-0">Lütfen sitemizi kullanmadan önce aşağıdaki yasal uyarıları dikkatlice okuyunuz.</p>
+    </div>
+</div>
+
+<!-- İçerik Kısmı -->
+<div class="container py-5 text-light">
+    <div class="legal-container">
         
-        <p class="mb-3">
-            <strong>2. Yatırım Kararları ve Risk Sorumluluğu:</strong> Sitede yer alan bilgilere dayanarak alınacak yatırım kararları ve gerçekleştirilecek alım satım işlemlerinin tüm riski münhasıran kullanıcıya aittir. Buradaki veriler ışığında yapılan işlemlerden doğabilecek doğrudan veya dolaylı maddi/manevi zararlardan BAM Terminal, yöneticileri veya çalışanları hiçbir şekilde sorumlu tutulamaz.
-        </p>
-        
-        <p class="mb-0">
-            <strong>3. Veri Doğruluğu ve Gecikme:</strong> Platformda sunulan finansal veriler (fiyatlar, oranlar, haberler) dış kaynaklardan sağlanmakta olup gecikmeli olabilir. BAM Terminal, algoritmaların teknik hesaplamalarında veya veri sağlayıcı kaynaklı hatalarda, eksikliklerde veya gecikmelerde doğruluk ve kesintisizlik garantisi vermez. 
-        </p>
+        <!-- SPK Zorunlu Uyarı Alanı -->
+        <div class="spk-alert mb-5">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <div>
+                <strong class="d-block mb-1 text-white">SPK Mevzuatı Gereği Önemli Uyarı</strong>
+                <span class="small" style="line-height: 1.6;">
+                    Burada yer alan yatırım bilgi, yorum ve tavsiyeleri <strong>yatırım danışmanlığı kapsamında değildir.</strong> 
+                    Yatırım danışmanlığı hizmeti; aracı kurumlar, portföy yönetim şirketleri, mevduat kabul etmeyen bankalar ile 
+                    müşteri arasında imzalanacak yatırım danışmanlığı sözleşmesi çerçevesinde sunulmaktadır.
+                </span>
+            </div>
+        </div>
+
+        <!-- Yasal Maddeler -->
+        <div class="legal-card">
+            
+            <div class="legal-section">
+                <h3 class="legal-title">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    1. Bilgilendirme Amaçlı Kullanım
+                </h3>
+                <p class="legal-text mb-0">
+                    BAM (Borsa Analiz Motoru) Terminal platformunda yer alan her türlü bilgi, değerlendirme, yorum, istatistiki şekil 
+                    ve bilgiler hazırlandığı tarih itibarıyla mevcut piyasa koşulları ve güvenilirliğine inanılan kaynaklardan 
+                    elde edilerek derlenmiştir. Sunulan hiçbir analiz, sistem skoru veya yapay zeka çıkarımı, kesin bir 
+                    getiri vaadi taşımamaktadır.
+                </p>
+            </div>
+
+            <div class="legal-section">
+                <h3 class="legal-title">
+                    <i class="bi bi-shield-exclamation"></i>
+                    2. Yatırım Kararları ve Risk Sorumluluğu
+                </h3>
+                <p class="legal-text mb-0">
+                    Sitede yer alan bilgilere dayanarak alınacak yatırım kararları ve gerçekleştirilecek alım satım işlemlerinin 
+                    tüm riski münhasıran kullanıcıya aittir. Buradaki görüşler, mali durumunuz ile risk ve getiri tercihlerinize 
+                    uygun olmayabilir. Bu nedenle, sadece burada yer alan bilgilere dayanılarak yatırım kararı verilmesi 
+                    beklentilerinize uygun sonuçlar doğurmayabilir. Doğabilecek doğrudan veya dolaylı maddi/manevi zararlardan 
+                    BAM Terminal, yöneticileri veya çalışanları hiçbir şekilde sorumlu tutulamaz.
+                </p>
+            </div>
+
+            <div class="legal-section">
+                <h3 class="legal-title">
+                    <i class="bi bi-clock-history"></i>
+                    3. Veri Doğruluğu ve Gecikme
+                </h3>
+                <p class="legal-text mb-0">
+                    Platformda sunulan finansal veriler (fiyatlar, oranlar, haberler) dış kaynaklardan sağlanmakta olup gecikmeli olabilir. 
+                    BAM Terminal, algoritmaların teknik hesaplamalarında veya veri sağlayıcı kaynaklı hatalarda, eksikliklerde 
+                    veya gecikmelerde doğruluk ve kesintisizlik garantisi vermez. Sistemsel arızalar veya altyapı sorunları 
+                    nedeniyle oluşabilecek kayıplardan kurumumuz mesul değildir.
+                </p>
+            </div>
+
+            <div class="legal-section">
+                <h3 class="legal-title">
+                    <i class="bi bi-journal-text"></i>
+                    4. Fikri Mülkiyet Hakları
+                </h3>
+                <p class="legal-text mb-0">
+                    BAM Terminal'de yayınlanan tüm algoritmik puanlamalar, yapay zeka analiz raporları ve platformun 
+                    tasarımına ait haklar saklıdır. Bu verilerin veya içeriklerin izinsiz şekilde başka platformlarda 
+                    ticari amaçla kullanılması, kopyalanması veya dağıtılması yasaktır.
+                </p>
+            </div>
+
+        </div>
+
     </div>
 </div>
 {% endblock %}
-

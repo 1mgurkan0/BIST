@@ -78,8 +78,13 @@
             background-color: #ca8a04 !important;
             color: #121826 !important;
         }
+        
+        /* Footer Hover Styles */
+        .hover-warning:hover {
+            color: #f59e0b !important;
+        }
     </style>
-    <link rel="stylesheet" href="{{ asset('css/bam-personal.css') }}?v=1">
+    <link rel="stylesheet" href="{{ asset('css/bam-personal.css') }}?v=2">
 </head>
 <body class="bam-page">
 
@@ -89,13 +94,77 @@
     {% block content %}{% endblock %}
 </main>
 
-<footer class="py-4 border-top border-secondary text-center mt-auto" style="background-color: #1f2937;">
-    <div class="container text-secondary small tracking-widest">
-        <p class="mb-2">&copy; {{ 'now'|date('Y') }} Borsa Analiz Motoru (BAM). Tum haklari saklidir.</p>
-        <p class="mb-0 opacity-75" style="font-size: 0.8rem;">
-            BAM Terminal bir yatirim danismanligi hizmeti degildir, sunulan analizler yatirim tavsiyesi niteligi tasimaz.<br>
-            Lutfen detayli bilgi icin <a href="/yasal-uyari" class="text-warning text-decoration-none">Yasal Uyari</a> metnimizi okuyun.
-        </p>
+<footer class="mt-auto border-top" style="background-color: #0f1520; border-color: rgba(255,255,255,0.05) !important;">
+    <div class="container py-5">
+        <div class="row g-4">
+            <!-- Marka ve Aciklama -->
+            <div class="col-lg-4 col-md-6">
+                <a class="d-flex align-items-center text-decoration-none mb-3" href="{{ path('app-home') }}">
+                    <img src="{{ asset('images/logo/bam-images.png') }}" alt="BAM Logo" style="width:36px; height:36px; object-fit:contain;" class="me-2">
+                    <span class="text-light fw-bold fs-4 tracking-widest">BAM</span>
+                </a>
+                <p class="text-secondary opacity-75 small lh-lg pe-lg-4">
+                    Borsa İstanbul yatırımcıları için yapay zeka destekli, gerçek zamanlı ve profesyonel finansal analiz terminali.
+                </p>
+                <div class="d-flex gap-3 mt-4">
+{#                    <a href="https://twitter.com/bamterminal" target="_blank" class="text-secondary hover-warning transition-all"><i class="bi bi-twitter-x fs-5"></i></a>#}
+                    <a href="https://www.linkedin.com/in/muhammed-g%C3%BCrkan-altunba%C5%9F-992ab0347/" target="_blank" class="text-secondary hover-warning transition-all"><i class="bi bi-linkedin fs-5"></i></a>
+                    <a href="mailto:muhammedgurkanaltunbas@gmail.com" class="text-secondary hover-warning transition-all"><i class="bi bi-envelope fs-5"></i></a>
+                </div>
+            </div>
+
+            <!-- Kurumsal -->
+            <div class="col-lg-2 col-md-6">
+                <h6 class="text-light fw-bold text-uppercase tracking-widest mb-4">Kurumsal</h6>
+                <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
+                    <li><a href="{{ path('app_about') }}" class="text-secondary text-decoration-none hover-warning transition-all small">Hakkımızda</a></li>
+                    <li><a href="{{ path('app_blog') }}" class="text-secondary text-decoration-none hover-warning transition-all small">Blog</a></li>
+                    <li><a href="{{ path('app_contact') }}" class="text-secondary text-decoration-none hover-warning transition-all small">İletişim</a></li>
+                    <li><a href="{{ path('app_legal') }}" class="text-secondary text-decoration-none hover-warning transition-all small">Yasal Uyarı</a></li>
+                </ul>
+            </div>
+
+            <!-- Platform -->
+            <div class="col-lg-2 col-md-6">
+                <h6 class="text-light fw-bold text-uppercase tracking-widest mb-4">Platform</h6>
+                <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
+                    <li><a href="{{ path('app-home') }}" class="text-secondary text-decoration-none hover-warning transition-all small">Piyasa Ekranı</a></li>
+                    <li><a href="{{ path('app_watchlist') }}" class="text-secondary text-decoration-none hover-warning transition-all small">Takip Listesi</a></li>
+                    <li><a href="{{ path('app_portfolio') }}" class="text-secondary text-decoration-none hover-warning transition-all small">Portföy Yönetimi</a></li>
+                    <li><a href="{{ path('app_ai_reports') }}" class="text-secondary text-decoration-none hover-warning transition-all small">Yapay Zeka Raporları</a></li>
+                </ul>
+            </div>
+
+            <!-- Iletisim & Destek -->
+            <div class="col-lg-4 col-md-6">
+                <h6 class="text-light fw-bold text-uppercase tracking-widest mb-4">Destek & İletişim</h6>
+                <ul class="list-unstyled mb-0 d-flex flex-column gap-3">
+                    <li class="d-flex align-items-start gap-3">
+                        <i class="bi bi-geo-alt text-warning mt-1"></i>
+                        <span class="text-secondary small">Çorum, Türkiye</span>
+                    </li>
+                    <li class="d-flex align-items-center gap-3">
+                        <i class="bi bi-envelope-paper text-warning"></i>
+                        <a href="mailto:info@bamterminal.com.tr" class="text-secondary text-decoration-none hover-warning small">muhammedgurkanaltunbas@gmail.com</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <hr class="my-5 border-secondary opacity-25">
+
+        <!-- Alt Telif & Yasal Uyari -->
+        <div class="row align-items-center">
+            <div class="col-lg-5 text-center text-lg-start mb-3 mb-lg-0">
+                <p class="text-secondary small mb-0 tracking-widest">&copy; {{ 'now'|date('Y') }} BAM Terminal. Tüm hakları saklıdır.</p>
+            </div>
+            <div class="col-lg-7 text-center text-lg-end">
+                <p class="text-secondary opacity-75 mb-0" style="font-size: 0.75rem; line-height: 1.6;">
+                    <strong>SPK Uyarısı:</strong> Burada yer alan yorum ve tavsiyeler yatırım danışmanlığı kapsamında değildir. 
+                    Verilen kararların tüm riski kullanıcıya aittir. Detaylar için <a href="{{ path('app_legal') }}" class="text-warning text-decoration-none">Yasal Uyarı</a> metnimizi okuyun.
+                </p>
+            </div>
+        </div>
     </div>
 </footer>
 
@@ -130,7 +199,7 @@
         }
 
         if (arananlar.length === 0) {
-            listeHtml.innerHTML = '<span class="text-secondary small opacity-50">Henuz aranan hisse yok</span>';
+            listeHtml.innerHTML = '<span class="text-secondary small opacity-50">Henüz aranan hisse yok</span>';
             return;
         }
 
@@ -147,7 +216,7 @@
     }
 
     function localStorageTemizle() {
-        if (confirm('Tum arama gecmisinizi temizlemek istediginize emin misiniz?')) {
+        if (confirm('Tüm arama geçmişinizi temizlemek istediğinize emin misiniz?')) {
             localStorage.clear();
             sonArananlariGoster();
         }

@@ -1,12 +1,214 @@
 {% extends "base.html.twig" %}
-{% block title %}Hakkimizda - BAM Terminal{% endblock %}
-{% block meta_description %}BAM Terminal ekibi, vizyonu ve Borsa Analiz Motoru hakkinda detayli bilgi.{% endblock %}
-{% block robots %}noindex, follow{% endblock %}
+{% block title %}Hakkımızda - BAM Terminal{% endblock %}
+{% block meta_description %}BAM Terminal ekibi, vizyonu ve yapay zeka destekli Borsa Analiz Motoru hakkında detaylı bilgi.{% endblock %}
+{% block robots %}index, follow{% endblock %}
+
 {% block content %}
-<div class="container py-5 mt-5 text-light text-center">
-    <h1>Hakkimizda</h1>
-    <p class="lead mt-3 text-secondary">I�erik yakinda eklenecektir.</p>
+<style>
+    .about-hero {
+        background: radial-gradient(circle at top right, rgba(245, 158, 11, 0.1) 0%, transparent 40%),
+                    radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.05) 0%, transparent 40%);
+    }
+    .card-custom {
+        background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .card-custom:hover {
+        transform: translateY(-5px);
+        border-color: rgba(245, 158, 11, 0.3);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(245, 158, 11, 0.1);
+    }
+    .icon-box-large {
+        width: 64px;
+        height: 64px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(245, 158, 11, 0.1);
+        border-radius: 16px;
+        color: #f59e0b;
+        margin-bottom: 1.5rem;
+    }
+    .text-gradient {
+        background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .stat-number {
+        font-size: 3rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+    .algo-box {
+        background-color: rgba(245, 158, 11, 0.05);
+        border-left: 4px solid #f59e0b;
+        padding: 2rem;
+        border-radius: 0 12px 12px 0;
+    }
+</style>
+
+<div class="about-hero py-5">
+    <div class="container mt-4 text-light">
+        
+        <!-- Hero Başlık Alanı -->
+        <div class="row justify-content-center text-center mb-5 pb-3">
+            <div class="col-lg-8 col-md-10">
+                <span class="badge bg-warning text-dark mb-3 px-3 py-2 rounded-pill tracking-widest fw-bold">BİZ KİMİZ?</span>
+                <h1 class="display-4 fw-bold mb-4">Finansal Analizde <span class="text-gradient">Yeni Bir Dönem</span></h1>
+                <p class="lead text-secondary" style="line-height: 1.8;">
+                    BAM Terminal (Borsa Analiz Motoru), Borsa İstanbul yatırımcıları için karmaşık finansal verileri, 
+                    yapay zeka gücüyle anında anlaşılır, şeffaf ve profesyonel içgörülere dönüştüren yeni nesil analiz platformudur.
+                </p>
+            </div>
+        </div>
+
+        <!-- Vizyon & Misyon Kartları -->
+        <div class="row g-4 mb-5 pb-4">
+            <div class="col-md-6">
+                <div class="card-custom p-4 p-md-5 h-100 rounded-4">
+                    <div class="icon-box-large">
+                        <i class="bi bi-bullseye fs-2"></i>
+                    </div>
+                    <h3 class="fw-bold mb-3">Misyonumuz</h3>
+                    <p class="text-secondary mb-0" style="line-height: 1.7;">
+                        Yatırımcılara paha biçilemez değerdeki veri setlerini en anlaşılır, en hızlı ve en doğru şekilde sunarak, 
+                        piyasadaki bilgi kirliliğini engellemek ve herkesin veri odaklı, rasyonel kararlar almasını sağlamak.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card-custom p-4 p-md-5 h-100 rounded-4">
+                    <div class="icon-box-large">
+                        <i class="bi bi-eye fs-2"></i>
+                    </div>
+                    <h3 class="fw-bold mb-3">Vizyonumuz</h3>
+                    <p class="text-secondary mb-0" style="line-height: 1.7;">
+                        Türkiye'de bireysel yatırımcıların profesyonel veri terminallerine erişimini tamamen demokratikleştirmek ve 
+                        yapay zeka destekli otonom finansal analiz sistemlerinde sektör standartlarını yeniden belirlemek.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ALGORİTMA NASIL ÇALIŞIR? -->
+        <div class="row mb-5 pt-4 justify-content-center">
+            <div class="col-lg-10">
+                <div class="card-custom p-4 p-md-5 rounded-4 border-warning border-opacity-25 shadow-lg">
+                    <div class="d-flex align-items-center mb-4 gap-3">
+                        <div class="icon-box-large mb-0 bg-warning text-dark">
+                            <i class="bi bi-cpu-fill fs-2"></i>
+                        </div>
+                        <h2 class="fw-bold mb-0">Algoritmamız <span class="text-warning">Nasıl Çalışır?</span></h2>
+                    </div>
+                    
+                    <p class="text-light mb-4" style="line-height: 1.8; font-size: 1.1rem;">
+                        BAM Terminal'in kalbinde, Borsa İstanbul (BIST) hisselerini 7/24 tarayan gelişmiş bir algoritmik motor yatar. 
+                        Bu motorun temel amacı; piyasadaki gürültüyü filtreleyerek, <strong>"dipten tepeye çıkma potansiyeli yüksek"</strong> 
+                        olan hisseleri tespit etmektir.
+                    </p>
+
+                    <div class="algo-box mb-4">
+                        <h5 class="fw-bold text-warning mb-3"><i class="bi bi-search me-2"></i> Dip Taraması & Yapısal Düşüş Analizi</h5>
+                        <p class="text-secondary mb-0" style="line-height: 1.7;">
+                            Sistemimiz, sadece rastgele düşmüş hisseleri değil, teknik ve temel veriler ışığında 
+                            aşırı satım bölgesine girmiş (oversold), MACD veya RSI gibi indikatörlerde pozitif uyumsuzluk gösteren, 
+                            ancak finansal yapısı güçlü olan şirketleri bulur. 
+                            <strong>Yani, haksız yere dipe itilmiş ve potansiyel bir yükseliş (tepeye dönüş) dalgası başlatmaya hazırlanan hisseleri radarınıza sokar.</strong>
+                        </p>
+                    </div>
+
+                    <div class="row g-4 mt-2">
+                        <div class="col-md-6">
+                            <div class="d-flex gap-3">
+                                <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                                <div>
+                                    <h6 class="fw-bold text-light">Teknik Formasyon Tespiti</h6>
+                                    <p class="text-secondary small">Dip oluşumunu tamamlamış, destek seviyelerinden tepki almaya başlayan grafikleri anında yakalar.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex gap-3">
+                                <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                                <div>
+                                    <h6 class="fw-bold text-light">AI Haber ve KAP Yorumlaması</h6>
+                                    <p class="text-secondary small">Dipten dönüş hikayesini destekleyecek pozitif KAP haberlerini ve bilançoları yapay zeka ile doğrular.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Neden BAM Terminal? -->
+        <div class="row mb-5 pt-4">
+            <div class="col-12 text-center mb-5">
+                <h2 class="fw-bold">Neden <span class="text-warning">BAM</span> Terminal?</h2>
+            </div>
+            
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="text-center px-3">
+                    <div class="icon-box-large">
+                        <i class="bi bi-robot fs-2"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">Yapay Zeka Destekli</h4>
+                    <p class="text-secondary">
+                        Llama ve Gemini gibi gelişmiş yapay zeka modelleriyle hisse bazlı otonom raporlamalar ve anlık bilanço yorumlamaları.
+                    </p>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="text-center px-3">
+                    <div class="icon-box-large">
+                        <i class="bi bi-lightning-charge fs-2"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">Gerçek Zamanlı Veri</h4>
+                    <p class="text-secondary">
+                        KAP haberleri, finansal oranlar ve fiyat hareketleri saniyeler içinde işlenerek ekranınıza profesyonel bir grafikle yansır.
+                    </p>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="text-center px-3">
+                    <div class="icon-box-large">
+                        <i class="bi bi-shield-check fs-2"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">%100 Bağımsız Analiz</h4>
+                    <p class="text-secondary">
+                        Hiçbir aracı kurum veya spekülatif gruba bağlı olmadan, yalnızca saf veri ve matematiksel modellere dayalı objektif yorumlar.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- İstatistikler -->
+        <div class="row justify-content-center align-items-center mb-4 mt-5">
+            <div class="col-12">
+                <div class="card-custom p-5 rounded-4 text-center">
+                    <div class="row g-4">
+                        <div class="col-md-4 border-end border-secondary border-opacity-25">
+                            <div class="stat-number text-warning mb-2">100+</div>
+                            <div class="text-uppercase tracking-widest text-secondary small fw-bold">Aktif BIST Hissesi</div>
+                        </div>
+                        <div class="col-md-4 border-end border-secondary border-opacity-25">
+                            <div class="stat-number text-warning mb-2">7/24</div>
+                            <div class="text-uppercase tracking-widest text-secondary small fw-bold">Otonom Analiz</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-number text-warning mb-2">%100</div>
+                            <div class="text-uppercase tracking-widest text-secondary small fw-bold">Veri Odaklı</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
 </div>
 {% endblock %}
-
-

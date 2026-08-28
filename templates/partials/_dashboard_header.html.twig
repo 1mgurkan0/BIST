@@ -1,58 +1,106 @@
 {% set currentRoute = app.request.attributes.get('_route') %}
 
-<nav class="navbar navbar-expand-lg navbar-custom bam-navbar py-2 shadow-sm sticky-top">
+<style>
+    .public-nav-link {
+        font-size: 0.95rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        padding: 0.5rem 1rem !important;
+        border-radius: 8px;
+    }
+    .public-nav-link:hover {
+        background-color: rgba(245, 158, 11, 0.1);
+        color: #f59e0b !important;
+    }
+    .public-nav-link.active {
+        color: #f59e0b !important;
+        background-color: rgba(245, 158, 11, 0.15);
+        font-weight: 600;
+    }
+</style>
+
+<nav class="navbar navbar-expand-xl navbar-custom bam-navbar py-2 shadow-sm sticky-top" style="background-color: #111827; border-bottom: 1px solid rgba(255,255,255,0.05);">
     <div class="container bam-header-container">
-        <a class="bam-brand" href="{{ path('app-home') }}">
+        <!-- Logo -->
+        <a class="bam-brand me-4" href="{{ path('app-home') }}">
             <span class="bam-brand-logo">
-                <img class="bam-brand-mark" src="{{ asset('images/logo/bam-images.png') }}" alt="BAM Logo">
+                <img class="bam-brand-mark" src="{{ asset('images/logo/bam-images.png') }}" alt="BAM Logo" style="width:32px; height:32px; object-fit:contain;">
             </span>
             <span>
-                <span class="bam-brand-title">BAM</span>
-                <span class="bam-brand-subtitle">Kişisel BIST Terminali</span>
+                <span class="bam-brand-title text-light fw-bold fs-4">BAM</span>
+                <span class="bam-brand-subtitle text-warning" style="font-size:0.75rem; letter-spacing:1px;">Kişisel BIST Terminali</span>
             </span>
         </a>
 
-        <button class="navbar-toggler bam-nav-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#userNavbar" aria-label="Menüyü aç">
-            <i class="bi bi-list fs-4"></i>
+        <button class="navbar-toggler bam-nav-toggle border-0" type="button" data-bs-toggle="collapse" data-bs-target="#userNavbar" aria-label="Menüyü Aç">
+            <i class="bi bi-list fs-2 text-light"></i>
         </button>
 
         <div class="collapse navbar-collapse" id="userNavbar">
-            {% if app.user %}
-                <div class="navbar-nav mx-lg-auto bam-nav-group">
-                    <a href="{{ path('app-home') }}" class="bam-nav-pill {{ currentRoute in ['app-home', 'market'] ? 'active' : '' }}">
+            
+            {% if not app.user %}
+                <!-- Klasik Kurumsal Linkler (Sadece Ziyaretçiler İçin) -->
+                <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-1 ms-xl-4 mt-3 mt-xl-0">
+                    <li class="nav-item">
+                        <a class="nav-link public-nav-link text-light opacity-75 {{ currentRoute == 'app-home' ? 'active opacity-100' : '' }}" href="{{ path('app-home') }}">
+                            <i class="bi bi-house me-1"></i> Ana Sayfa
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link public-nav-link text-light opacity-75 {{ currentRoute == 'app_about' ? 'active opacity-100' : '' }}" href="{{ path('app_about') }}">
+                            <i class="bi bi-info-circle me-1"></i> Hakkımızda
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link public-nav-link text-light opacity-75 {{ currentRoute == 'app_blog' ? 'active opacity-100' : '' }}" href="{{ path('app_blog') }}">
+                            <i class="bi bi-journal-text me-1"></i> Blog
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link public-nav-link text-light opacity-75 {{ currentRoute == 'app_contact' ? 'active opacity-100' : '' }}" href="{{ path('app_contact') }}">
+                            <i class="bi bi-envelope me-1"></i> İletişim
+                        </a>
+                    </li>
+                </ul>
+
+                <!-- Giriş Butonları (Sağ) -->
+                <div class="d-flex align-items-center gap-3 ms-xl-auto mt-3 mt-xl-0">
+                    <a href="{{ path('app_login') }}" class="btn btn-warning px-4 py-2 fw-bold text-dark rounded-pill shadow-sm" style="letter-spacing: 0.5px;">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> GİRİŞ YAP
+                    </a>
+                </div>
+            {% else %}
+                <!-- Terminal Araçları (Giriş Yapanlar İçin Sola Yaslı) -->
+                <div class="navbar-nav me-auto bam-nav-group mt-3 mt-xl-0 mb-3 mb-xl-0 p-1 ms-xl-4" style="background-color: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                    <a href="{{ path('app-home') }}" class="bam-nav-pill text-decoration-none px-3 py-2 rounded-3 text-light opacity-75 custom-badge-hover {{ currentRoute in ['app-home', 'market'] ? 'bg-warning text-dark fw-bold opacity-100' : '' }}">
                         <i class="bi bi-grid-1x2"></i> Panel
                     </a>
-                    <a href="{{ path('app_watchlist') }}" class="bam-nav-pill {{ currentRoute starts with 'app_watchlist' or currentRoute starts with 'api_watchlist' ? 'active' : '' }}">
+                    <a href="{{ path('app_watchlist') }}" class="bam-nav-pill text-decoration-none px-3 py-2 rounded-3 text-light opacity-75 custom-badge-hover {{ currentRoute starts with 'app_watchlist' or currentRoute starts with 'api_watchlist' ? 'bg-warning text-dark fw-bold opacity-100' : '' }}">
                         <i class="bi bi-radar"></i> Takip
                     </a>
-                    <a href="{{ path('app_portfolio') }}" class="bam-nav-pill {{ currentRoute starts with 'app_portfolio' or currentRoute starts with 'portfolio_' or currentRoute starts with 'api_portfolio' ? 'active' : '' }}">
+                    <a href="{{ path('app_portfolio') }}" class="bam-nav-pill text-decoration-none px-3 py-2 rounded-3 text-light opacity-75 custom-badge-hover {{ currentRoute starts with 'app_portfolio' or currentRoute starts with 'portfolio_' or currentRoute starts with 'api_portfolio' ? 'bg-warning text-dark fw-bold opacity-100' : '' }}">
                         <i class="bi bi-briefcase"></i> Portföy
                     </a>
-                    <a href="{{ path('app_ai_reports') }}" class="bam-nav-pill {{ currentRoute starts with 'app_ai_reports' ? 'active' : '' }}">
+                    <a href="{{ path('app_ai_reports') }}" class="bam-nav-pill text-decoration-none px-3 py-2 rounded-3 text-light opacity-75 custom-badge-hover {{ currentRoute starts with 'app_ai_reports' ? 'bg-warning text-dark fw-bold opacity-100' : '' }}">
                         <i class="bi bi-stars"></i> AI Rapor
                     </a>
                 </div>
 
-                <div class="d-flex align-items-center gap-2 ms-lg-auto">
-                    <div class="bam-user-chip">
-                        <span class="bam-user-avatar"><i class="bi bi-person"></i></span>
-                        <span class="min-w-0">
-                            <span class="bam-user-label d-block">Aktif oturum</span>
-                            <span class="bam-user-email d-block">{{ app.user.email }}</span>
+                <!-- Kullanıcı Profili (Sağ) -->
+                <div class="d-flex align-items-center gap-3 ms-xl-auto">
+                    <div class="bam-user-chip d-flex align-items-center gap-2 px-3 py-2 rounded-3" style="background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                        <span class="bam-user-avatar text-warning"><i class="bi bi-person-circle fs-4"></i></span>
+                        <span class="min-w-0 lh-sm">
+                            <span class="d-block text-secondary" style="font-size: 0.7rem; letter-spacing: 1px; text-transform: uppercase;">Aktif Oturum</span>
+                            <span class="d-block text-light fw-bold text-nowrap" style="font-size: 0.85rem;">{{ app.user.email }}</span>
                         </span>
                     </div>
                     <form method="post" action="{{ path('app_logout') }}" class="m-0">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
-                        <button type="submit" class="bam-icon-btn" title="Çıkış yap" aria-label="Çıkış yap">
-                            <i class="bi bi-box-arrow-right"></i>
+                        <button type="submit" class="btn btn-outline-danger border-0 px-3 py-2 rounded-3" title="Çıkış Yap">
+                            <i class="bi bi-box-arrow-right fs-5"></i>
                         </button>
                     </form>
-                </div>
-            {% else %}
-                <div class="d-flex align-items-center gap-2 ms-lg-auto mt-3 mt-lg-0">
-                    <a href="{{ path('app_login') }}" class="btn btn-yellow-custom btn-sm px-4 fw-bold tracking-widest">
-                        <i class="bi bi-box-arrow-in-right me-1"></i> GİRİŞ
-                    </a>
                 </div>
             {% endif %}
         </div>
