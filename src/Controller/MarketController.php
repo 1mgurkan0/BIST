@@ -9,6 +9,7 @@ use App\Entity\Stock;
 use App\Repository\KapNewsRepository;
 use App\Repository\StockRepository;
 use App\Service\YahooFinanceService;
+use App\Service\BistUniverseService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,11 +26,15 @@ class MarketController extends AbstractController
         YahooFinanceService $yahoo,
         EntityManagerInterface $em,
         KapNewsRepository $kapNewsRepository,
+        BistUniverseService $universeService,
     ): Response {
         $symbol = strtoupper(trim((string) $request->query->get('symbol', '')));
         $stock = null;
         $newsList = [];
         $marketDataStatus = null;
+        
+        $universeSymbols = $universeService->symbols();
+        $marketStocks = [];
 
         if ($symbol !== '' && !preg_match('/^[A-Z0-9]{2,20}$/', $symbol)) {
             $this->addFlash('error', 'Gecerli bir BIST sembolu girin.');
@@ -97,6 +102,38 @@ class MarketController extends AbstractController
                 new \DateTimeImmutable('-7 days'),
                 10,
             );
+        } else {
+            // Homepage market view
+            $marketStocksAssoc = $repository->findLatestForSymbols($universeSymbols);
+            
+            // Sort by symbol A-Z
+            ksort($marketStocksAssoc);
+            
+            // Define lists for tabs
+            $bist30 = explode(',', 'AKBNK,ALARK,ARCLK,ASELS,ASTOR,BIMAS,BRSAN,CCOL,EKGYO,ENKAI,EREGL,FROTO,GARAN,GUBRF,HEKTS,ISCTR,KCHOL,KONTR,KOZAA,KOZAL,KRDMD,ODAS,OYAKC,PETKM,PGSUS,SAHOL,SASA,SISE,TCELL,THYAO,TOASO,TUPRS,YKBNK');
+            $bist50 = explode(',', 'AGHOL,AKSA,ALFAS,BERA,CANTE,CIMSA,CWENE,DOAS,EGEEN,ENJSA,EUPWR,GESAN,HALKB,ISGYO,KORDS,MGROS,MIATK,QUAGR,SMRTG,SOKM,TAVHL,TTKOM,ULKER,VAKBN,YEOTK,ZOREN');
+            
+            // We consider BIST 100 as Bist30 + Bist50 + the rest inside universe.
+            // But let's just categorize based on those explicitly.
+            
+            $marketStocks = [
+                'bist30' => [],
+                'bist50' => [],
+                'bist100' => [], // Just merge 30 and 50 and some others
+                'all' => array_values($marketStocksAssoc),
+            ];
+            
+            foreach ($marketStocksAssoc as $sym => $st) {
+                if (in_array($sym, $bist30)) {
+                    $marketStocks['bist30'][] = $st;
+                    $marketStocks['bist100'][] = $st;
+                } elseif (in_array($sym, $bist50)) {
+                    $marketStocks['bist50'][] = $st;
+                    $marketStocks['bist100'][] = $st;
+                } else {
+                    $marketStocks['bist100'][] = $st; // Put everything else in 100 for simplicity since they are all big
+                }
+            }
         }
 
         return $this->render('market/index.html.twig', [
@@ -104,6 +141,8 @@ class MarketController extends AbstractController
             'symbol' => $symbol,
             'newsList' => $newsList,
             'marketDataStatus' => $marketDataStatus,
+            'marketStocks' => $marketStocks,
+            'lastUpdate' => !empty($marketStocks['all']) ? $marketStocks['all'][0]->getCreatedAt()->format('H:i:s') : '-',
         ]);
     }
 }

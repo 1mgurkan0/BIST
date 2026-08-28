@@ -16,20 +16,6 @@ class StockRepository extends ServiceEntityRepository
         parent::__construct($registry, Stock::class);
     }
 
-    //    /**
-    //     * @return Stock[] Returns an array of Stock objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('s')
-    //            ->andWhere('s.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('s.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
     public function findRecent(string $symbol, int $seconds = 30): ?Stock
     {
         return $this->createQueryBuilder('s')
@@ -54,4 +40,32 @@ class StockRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * @param string[] $symbols
+     * @return array<string, Stock>
+     */
+    public function findLatestForSymbols(array $symbols): array
+    {
+        if (empty($symbols)) {
+            return [];
+        }
+
+        $stocks = $this->createQueryBuilder('s')
+            ->andWhere('s.symbol IN (:symbols)')
+            ->setParameter('symbols', $symbols)
+            ->andWhere('s.createdAt >= :time')
+            ->setParameter('time', new \DateTime('-15 minutes'))
+            ->orderBy('s.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+        
+        $results = [];
+        foreach ($stocks as $s) {
+            if (!isset($results[$s->getSymbol()])) {
+                $results[$s->getSymbol()] = $s;
+            }
+        }
+        
+        return $results;
+    }
 }
