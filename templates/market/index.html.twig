@@ -2,12 +2,12 @@
 {% block content %}
 <div class="container bam-shell">
     
-    <!-- 1. ANALİZ MOTORU (ÜST KISIM) -->
+    <!-- 1. ANALÄ°Z MOTORU (ÃœST KISIM) -->
     <section class="bam-card p-5 mb-5 text-center shadow-lg" style="background: linear-gradient(145deg, #1f2937 0%, #111827 100%); border-color: rgba(245,158,11,0.2);">
         <h1 class="display-5 fw-bolder mb-3 text-white tracking-widest">
-            <i class="bi bi-cpu text-warning me-2"></i>BAM <span class="text-warning">ANALİZ</span> MOTORU
+            <i class="bi bi-cpu text-warning me-2"></i>BAM <span class="text-warning">ANALÄ°Z</span> MOTORU
         </h1>
-        <p class="text-secondary mb-4 fs-5">BIST Hisselerini saniyeler içinde yapay zeka ile analiz edin.</p>
+        <p class="text-secondary mb-4 fs-5">BIST Hisselerini saniyeler iÃ§inde yapay zeka ile analiz edin.</p>
         
         <form method="get" class="d-flex flex-column flex-md-row gap-3 m-0 justify-content-center max-w-lg mx-auto" style="max-width: 600px;">
             <div class="input-group input-group-lg shadow-sm">
@@ -18,10 +18,10 @@
                        name="symbol"
                        value="{{ symbol|default('') }}"
                        class="form-control bg-dark border-secondary text-white text-uppercase fw-bold tracking-widest fs-4 shadow-none"
-                       placeholder="Örn: THYAO, ASELS..."
+                       placeholder="Ã–rn: THYAO, ASELS..."
                        required>
                 <button type="submit" class="btn btn-warning fw-bold px-5 tracking-widest">
-                    ANALİZ ET
+                    ANALÄ°Z ET
                 </button>
             </div>
         </form>
@@ -32,11 +32,11 @@
         </div>
     </section>
 
-    <!-- 2. EĞER BİR HİSSE ARATILDIYSA (DETAY BÖLÜMÜ) -->
+    <!-- 2. EÄžER BÄ°R HÄ°SSE ARATILDIYSA (DETAY BÃ–LÃœMÃœ) -->
     {% if symbol is defined and symbol is not empty %}
         
         <div class="mb-5 d-flex justify-content-between align-items-center">
-            <h2 class="h3 fw-bold text-light mb-0"><i class="bi bi-bar-chart-fill text-warning me-2"></i>{{ symbol|upper }} Analiz Sonuçları</h2>
+            <h2 class="h3 fw-bold text-light mb-0"><i class="bi bi-bar-chart-fill text-warning me-2"></i>{{ symbol|upper }} Analiz SonuÃ§larÄ±</h2>
             <a href="{{ path('app-home') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                 <i class="bi bi-x-lg me-1"></i> Kapat
             </a>
@@ -47,7 +47,7 @@
             {% set yuzde = stock.previousClose > 0 ? (degisim / stock.previousClose) * 100 : 0 %}
             {% set text_renk = degisim >= 0 ? 'text-success' : 'text-danger' %}
             {% set card_bg = degisim >= 0 ? 'bg-green-soft' : 'bg-red-soft' %}
-            {% set ikon = degisim >= 0 ? '▲' : '▼' %}
+            {% set ikon = degisim >= 0 ? 'â–²' : 'â–¼' %}
 
             <div class="card-custom shadow-lg overflow-hidden mb-5 border-0">
                 <div class="p-4 border-bottom border-secondary d-flex flex-column flex-md-row justify-content-between align-items-md-center {{ card_bg }}">
@@ -55,7 +55,7 @@
                         <h1 class="display-3 fw-bolder mb-0 tracking-widest text-white">{{ stock.symbol|upper }}</h1>
                         <small class="text-secondary font-monospace">
                             <i class="bi bi-arrow-repeat me-1"></i>
-                            SON GÜNCELLEME: {{ stock.createdAt|date('d.m.Y H:i:s') }}
+                            SON GÃœNCELLEME: {{ stock.createdAt|date('d.m.Y H:i:s') }}
                         </small>
                     </div>
                     <div class="text-md-end">
@@ -75,28 +75,28 @@
 
                 <div class="row g-0 border-bottom border-secondary" style="background-color: #374151;">
                     <div class="col-6 col-md-3 p-3 text-center border-end border-bottom border-md-bottom-0 border-secondary">
-                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">AÇILIŞ</small>
+                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">AÃ‡ILIÅž</small>
                         <span class="fs-5 fw-bold font-monospace text-light">{{ stock.open|number_format(2, ',', '.') }}</span>
                     </div>
                     <div class="col-6 col-md-3 p-3 text-center border-end-md border-bottom border-md-bottom-0 border-secondary">
-                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">GÜN YÜKSEĞİ</small>
+                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">GÃœN YÃœKSEÄžÄ°</small>
                         <span class="fs-5 fw-bold font-monospace text-success">{{ stock.high|number_format(2, ',', '.') }}</span>
                     </div>
                     <div class="col-6 col-md-3 p-3 text-center border-end border-secondary">
-                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">GÜN DÜŞÜĞÜ</small>
+                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">GÃœN DÃœÅžÃœÄžÃœ</small>
                         <span class="fs-5 fw-bold font-monospace text-danger">{{ stock.low|number_format(2, ',', '.') }}</span>
                     </div>
                     <div class="col-6 col-md-3 p-3 text-center border-secondary">
-                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">ÖNC. KAPANIŞ</small>
+                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">Ã–NC. KAPANIÅž</small>
                         <span class="fs-5 fw-bold font-monospace text-light">{{ stock.previousClose|number_format(2, ',', '.') }}</span>
                     </div>
                 </div>
             </div>
 
-            <!-- KAP Haberleri ve Yapay Zeka Özeti -->
+            <!-- KAP Haberleri ve Yapay Zeka Ã–zeti -->
             <div class="text-center mt-4 mb-5">
                 <button onclick="toggleNewsList()" class="btn btn-outline-warning rounded-pill px-5 py-3 fw-bold shadow-sm tracking-widest">
-                    <i id="arrowIcon" class="bi bi-chevron-down me-2"></i> KAP HABERLERİ VE AI ANALİZLERİ
+                    <i id="arrowIcon" class="bi bi-chevron-down me-2"></i> KAP HABERLERÄ° VE AI ANALÄ°ZLERÄ°
                 </button>
 
                 <div id="newsListContainer" class="d-none mt-4 text-start">
@@ -117,7 +117,7 @@
                                                     </div>
                                                 {% else %}
                                                     <div class="small text-secondary fw-bold tracking-widest mb-1">
-                                                        <i class="bi bi-hourglass-split me-1"></i> AI ANALİZİ BEKLİYOR
+                                                        <i class="bi bi-hourglass-split me-1"></i> AI ANALÄ°ZÄ° BEKLÄ°YOR
                                                     </div>
                                                 {% endif %}
                                                 <div class="small text-secondary">
@@ -125,7 +125,7 @@
                                                 </div>
                                             </div>
                                             <a href="https://www.kap.org.tr/tr/Bildirim/{{ news.kapId }}" target="_blank" class="btn btn-sm btn-outline-info rounded-pill px-3">
-                                                KAP'ta Gör <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                                KAP'ta GÃ¶r <i class="bi bi-box-arrow-up-right ms-1"></i>
                                             </a>
                                         </div>
                                         <h5 class="text-light mb-3">{{ news.title }}</h5>
@@ -140,7 +140,7 @@
                     {% else %}
                         <div class="card-custom text-secondary p-5 text-center border-secondary">
                             <i class="bi bi-inbox fs-1 mb-3 d-block opacity-50"></i>
-                            <p class="mb-0 fs-5">"{{ symbol }}" için son 1 haftaya ait KAP haberi bulunamadı.</p>
+                            <p class="mb-0 fs-5">"{{ symbol }}" iÃ§in son 1 haftaya ait KAP haberi bulunamadÄ±.</p>
                         </div>
                     {% endif %}
                 </div>
@@ -149,22 +149,22 @@
         {% else %}
             <div class="alert alert-danger bg-red-soft border-danger text-danger text-center rounded-4 p-5 shadow-lg mt-4 mb-5">
                 <i class="bi bi-exclamation-triangle-fill display-4 mb-3 d-block"></i>
-                <h4 class="fw-bold mb-2">Veri Bulunamadı</h4>
+                <h4 class="fw-bold mb-2">Veri BulunamadÄ±</h4>
                 <p class="mb-0 text-white-50">
-                    {{ marketDataStatus.message|default('"' ~ symbol ~ '" sembolü için veri bulunamadı.') }}
+                    {{ marketDataStatus.message|default('"' ~ symbol ~ '" sembolÃ¼ iÃ§in veri bulunamadÄ±.') }}
                 </p>
             </div>
         {% endif %}
 
     {% else %}
         
-        <!-- YERLİ HTML BORSA TABLOLARI -->
+        <!-- YERLÄ° HTML BORSA TABLOLARI -->
         <div class="mt-4 mb-5">
             <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
-                <h2 class="fw-bold text-light mb-0 tracking-widest"><i class="bi bi-bar-chart-line-fill text-warning me-2"></i>BAM CANLI PİYASA</h2>
+                <h2 class="fw-bold text-light mb-0 tracking-widest"><i class="bi bi-bar-chart-line-fill text-warning me-2"></i>BAM CANLI PÄ°YASA</h2>
                 <div class="d-flex align-items-center gap-2">
                     <i class="bi bi-clock-history text-secondary"></i>
-                    <span class="text-secondary small font-monospace">Son Güncelleme: <strong class="text-light">{{ lastUpdate }}</strong></span>
+                    <span class="text-secondary small font-monospace">Son GÃ¼ncelleme: <strong class="text-light">{{ lastUpdate }}</strong></span>
                 </div>
             </div>
 
@@ -187,17 +187,17 @@
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link rounded-pill fw-bold px-4 shadow-sm text-warning" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all" type="button" role="tab" aria-controls="pills-all" aria-selected="false">
-                        Tüm Hisseler (116)
+                        TÃ¼m Hisseler (116)
                     </button>
                 </li>
             </ul>
 
-            <!-- TAB İÇERİKLERİ -->
+            <!-- TAB Ä°Ã‡ERÄ°KLERÄ° -->
             <div class="tab-content" id="pills-tabContent">
                 
                 {% macro renderStockTable(stocks) %}
                     {% if stocks is empty %}
-                        <div class="text-center p-5 text-secondary">Veri bulunamadı. Lütfen "php bin/console app:market:fetch-bulk" komutunu çalıştırın.</div>
+                        <div class="text-center p-5 text-secondary">Veri bulunamadÄ±. LÃ¼tfen "php bin/console app:market:fetch-bulk" komutunu Ã§alÄ±ÅŸtÄ±rÄ±n.</div>
                     {% else %}
                         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                             {% set chunk_size = (stocks|length / 3)|round(0, 'ceil') %}
@@ -215,10 +215,10 @@
                                             </thead>
                                             <tbody>
                                                 {% for st in column_stocks %}
-                                                    {% set degisim = st.price - st.previousClose %}
-                                                    {% set yuzde = st.previousClose > 0 ? (degisim / st.previousClose) * 100 : 0 %}
+                                                    {% set degisim = st.price - st.previous_close %}
+                                                    {% set yuzde = st.previous_close > 0 ? (degisim / st.previous_close) * 100 : 0 %}
                                                     {% set text_renk = degisim > 0 ? 'text-success' : (degisim < 0 ? 'text-danger' : 'text-secondary') %}
-                                                    {% set ikon = degisim > 0 ? '▲' : (degisim < 0 ? '▼' : '▬') %}
+                                                    {% set ikon = degisim > 0 ? 'â–²' : (degisim < 0 ? 'â–¼' : 'â–¬') %}
                                                     
                                                     <tr class="border-bottom border-secondary border-opacity-25" style="cursor: pointer;" onclick="window.location='?symbol={{ st.symbol }}'">
                                                         <td class="py-2 px-3 fw-bold text-light">
@@ -231,7 +231,7 @@
                                                             <span class="small me-1">{{ ikon }}</span>{{ yuzde|abs|number_format(2, ',', '.') }}
                                                         </td>
                                                         <td class="py-2 px-3 text-end text-secondary small font-monospace">
-                                                            {{ st.createdAt|date('H:i:s') }}
+                                                            {{ st.updated_at|date('H:i:s') }}
                                                         </td>
                                                     </tr>
                                                 {% endfor %}
@@ -263,3 +263,4 @@
 
 </div>
 {% endblock %}
+

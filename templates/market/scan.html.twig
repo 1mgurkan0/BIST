@@ -1,0 +1,127 @@
+{% extends 'base.html.twig' %}
+{% block content %}
+<div class="container-fluid px-4 py-5 bam-shell">
+    
+    <div class="d-flex justify-content-between align-items-end border-bottom border-secondary pb-4 mb-4">
+        <div>
+            <h1 class="display-5 fw-bolder mb-1 text-white tracking-widest">
+                <i class="bi bi-radar text-warning me-2"></i>BIST <span class="text-warning">TARAMA</span>
+            </h1>
+            <p class="text-secondary mb-0 fs-5">Tüm piyasa verileri ve BAM sinyalleri tek ekranda.</p>
+        </div>
+        <div class="text-end">
+            <div class="d-flex align-items-center gap-2 justify-content-end mb-2">
+                <span class="spinner-grow spinner-grow-sm text-success" role="status" aria-hidden="true"></span>
+                <span class="text-success fw-bold tracking-widest small">CANLI PİYASA</span>
+            </div>
+            <div class="text-secondary small font-monospace">
+                Son Güncelleme: <strong class="text-light" id="lastUpdateTime">{{ lastUpdate }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-custom shadow-lg border-secondary mb-5 p-0 overflow-hidden" style="background-color: #111827;">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0 align-middle table-borderless" id="scanTable">
+                <thead class="table-secondary text-dark border-bottom border-dark">
+                    <tr>
+                        <th class="py-3 px-4">Sembol</th>
+                        <th class="py-3 px-4 text-end">Fiyat (TL)</th>
+                        <th class="py-3 px-4 text-end">% Değişim</th>
+                        <th class="py-3 px-4 text-center">BAM Skor</th>
+                        <th class="py-3 px-4 text-center">RSI (14)</th>
+                        <th class="py-3 px-4 text-center">MACD Sinyal</th>
+                        <th class="py-3 px-4">AI Analizi (Son Durum)</th>
+                        <th class="py-3 px-4 text-end">Aksiyon</th>
+                    </tr>
+                </thead>
+                <tbody id="scanTableBody">
+                    {% for st in marketStocks %}
+                        {% set text_renk = st.change_percent > 0 ? 'text-success' : (st.change_percent < 0 ? 'text-danger' : 'text-secondary') %}
+                        {% set ikon = st.change_percent > 0 ? '▲' : (st.change_percent < 0 ? '▼' : '▬') %}
+                        {% set rsi_renk = st.rsi is not null ? (st.rsi > 70 ? 'text-danger' : (st.rsi < 30 ? 'text-success' : 'text-warning')) : 'text-secondary' %}
+                        {% set macd_bg = st.macd_hist is not null ? (st.macd_hist > 0 ? 'bg-success' : 'bg-danger') : 'bg-secondary' %}
+                        {% set score_bg = st.bam_score >= 70 ? 'bg-success' : (st.bam_score >= 50 ? 'bg-warning text-dark' : 'bg-danger') %}
+                        
+                        <tr class="border-bottom border-secondary border-opacity-25" style="cursor: pointer;" onclick="window.location='/hisse/{{ st.symbol }}'">
+                            <td class="py-3 px-4 fw-bold text-light fs-5">
+                                {{ st.symbol }}
+                            </td>
+                            <td class="py-3 px-4 text-end fw-bold font-monospace fs-5">
+                                {{ st.price|number_format(2, ',', '.') }}
+                            </td>
+                            <td class="py-3 px-4 text-end fw-bold fs-5 {{ text_renk }}">
+                                <span class="small me-1">{{ ikon }}</span>{{ st.change_percent|abs|number_format(2, ',', '.') }}
+                            </td>
+                            <td class="py-3 px-4 text-center">
+                                <span class="badge {{ score_bg }} fs-6 rounded-pill px-3">{{ st.bam_score }} / 100</span>
+                            </td>
+                            <td class="py-3 px-4 text-center fw-bold {{ rsi_renk }}">
+                                {{ st.rsi ? st.rsi|number_format(1, ',', '.') : '-' }}
+                            </td>
+                            <td class="py-3 px-4 text-center">
+                                {% if st.macd_signal is not null %}
+                                    <span class="badge {{ macd_bg }} rounded-pill px-3 py-2 text-uppercase tracking-widest shadow-sm">
+                                        {{ st.macd_hist > 0 ? 'AL' : 'SAT' }}
+                                    </span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4">
+                                {% if st.ai_log %}
+                                    <span class="badge bg-dark border border-secondary text-light mb-1">{{ st.ai_log.status|capitalize }}</span>
+                                    {% if st.ai_log.reasons %}
+                                        <div class="small text-secondary text-truncate" style="max-width: 250px;" title="{{ st.ai_log.reasons[0]|default('') }}">
+                                            <i class="bi bi-robot text-warning me-1"></i> {{ st.ai_log.reasons[0]|default('') }}
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-secondary small">Veri bekleniyor...</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-end">
+                                <a href="/hisse/{{ st.symbol }}" class="btn btn-sm btn-outline-warning rounded-pill px-3 text-nowrap">
+                                    Grafik <i class="bi bi-graph-up ms-1"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<!-- DataTables CSS and JS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css"/>
+<script type="text/javascript" src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<style>
+    .dataTables_wrapper .dataTables_length, .dataTables_wrapper .dataTables_filter, 
+    .dataTables_wrapper .dataTables_info, .dataTables_wrapper .dataTables_processing, 
+    .dataTables_wrapper .dataTables_paginate { color: #adb5bd; margin-bottom: 1rem; margin-top: 1rem; padding: 0 1rem; }
+    .dataTables_wrapper .dataTables_filter input { background-color: #1f2937; color: white; border: 1px solid #4b5563; }
+    .dataTables_wrapper .dataTables_length select { background-color: #1f2937; color: white; border: 1px solid #4b5563; }
+    .page-item.active .page-link { background-color: #f59e0b; border-color: #f59e0b; color: #000; font-weight: bold; }
+    .page-link { background-color: #1f2937; border-color: #4b5563; color: #f59e0b; }
+    .page-link:hover { background-color: #374151; color: #fbbf24; border-color: #4b5563; }
+    .page-item.disabled .page-link { background-color: #111827; border-color: #374151; }
+</style>
+
+<script>
+    $(document).ready(function() {
+        $('#scanTable').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json"
+            },
+            "order": [[ 3, "desc" ]], // Default order by BAM Score desc
+            "pageLength": 50
+        });
+    });
+</script>
+{% endblock %}

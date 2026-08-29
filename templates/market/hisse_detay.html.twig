@@ -1,0 +1,177 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ stock.symbol }} Hisse Fiyatı ve AI Analizi - BAM Terminal{% endblock %}
+{% block meta_description %}{{ stock.symbol }} hissesi için güncel BAM skoru, canlı fiyatı, MACD ve RSI değerleri ile yapay zeka analiz raporu.{% endblock %}
+
+{% block content %}
+<div class="container bam-shell pt-4">
+    <div class="mb-4 d-flex justify-content-between align-items-center">
+        <h2 class="h3 fw-bold text-light mb-0">
+            <i class="bi bi-bar-chart-fill text-warning me-2"></i>{{ stock.symbol|upper }} Detay
+        </h2>
+        <a href="{{ path('app-home') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="bi bi-x-lg me-1"></i> Geri Dön
+        </a>
+    </div>
+
+    <!-- Canlı Fiyat Paneli -->
+    <div class="card-custom shadow-lg overflow-hidden mb-4 border-0" id="livePriceCard">
+        {% set text_renk = stock.change_percent > 0 ? 'text-success' : (stock.change_percent < 0 ? 'text-danger' : 'text-secondary') %}
+        {% set card_bg = stock.change_percent > 0 ? 'bg-green-soft' : (stock.change_percent < 0 ? 'bg-red-soft' : 'bg-dark') %}
+        {% set ikon = stock.change_percent > 0 ? '▲' : (stock.change_percent < 0 ? '▼' : '▬') %}
+
+        <div class="p-4 border-bottom border-secondary d-flex flex-column flex-md-row justify-content-between align-items-md-center {{ card_bg }}">
+            <div class="mb-3 mb-md-0">
+                <h1 class="display-3 fw-bolder mb-0 tracking-widest text-white">{{ stock.symbol|upper }}</h1>
+                <small class="text-secondary font-monospace" id="lastUpdateText">
+                    <i class="bi bi-arrow-repeat me-1"></i> SON GÜNCELLEME: {{ lastUpdate }}
+                </small>
+            </div>
+            <div class="text-md-end">
+                <div class="display-5 font-monospace fw-bold text-white">
+                    <span id="priceVal">{{ stock.price|number_format(2, ',', '.') }}</span>
+                    <span class="fs-4 text-secondary">TL</span>
+                </div>
+                <div class="fs-5 fw-bold {{ text_renk }} d-flex justify-content-md-end align-items-center gap-2 mt-1" id="changeContainer">
+                    <span id="changeIcon">{{ ikon }}</span>
+                    <span class="badge bg-dark text-light border border-secondary rounded-pill px-3 py-2">
+                        %<span id="changeVal">{{ stock.change_percent|abs|number_format(2, ',', '.') }}</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row g-0 border-bottom border-secondary" style="background-color: #374151;">
+            <div class="col-6 col-md-3 p-3 text-center border-end border-bottom border-md-bottom-0 border-secondary">
+                <small class="text-secondary fw-bold tracking-widest d-block mb-1">BAM SKORU</small>
+                {% set score_bg = stock.bam_score >= 70 ? 'text-success' : (stock.bam_score >= 50 ? 'text-warning' : 'text-danger') %}
+                <span class="fs-4 fw-bold font-monospace {{ score_bg }}" id="bamScoreVal">{{ stock.bam_score }} / 100</span>
+            </div>
+            <div class="col-6 col-md-3 p-3 text-center border-end-md border-bottom border-md-bottom-0 border-secondary">
+                <small class="text-secondary fw-bold tracking-widest d-block mb-1">RSI (14)</small>
+                {% set rsi_renk = stock.rsi is not null ? (stock.rsi > 70 ? 'text-danger' : (stock.rsi < 30 ? 'text-success' : 'text-warning')) : 'text-secondary' %}
+                <span class="fs-4 fw-bold font-monospace {{ rsi_renk }}" id="rsiVal">{{ stock.rsi ? stock.rsi|number_format(1, ',', '.') : '-' }}</span>
+            </div>
+            <div class="col-6 col-md-3 p-3 text-center border-end border-secondary">
+                <small class="text-secondary fw-bold tracking-widest d-block mb-1">MACD</small>
+                {% set macd_text = stock.macd_hist is not null ? (stock.macd_hist > 0 ? 'AL' : 'SAT') : '-' %}
+                {% set macd_col = stock.macd_hist is not null ? (stock.macd_hist > 0 ? 'text-success' : 'text-danger') : 'text-secondary' %}
+                <span class="fs-4 fw-bold font-monospace {{ macd_col }}" id="macdVal">{{ macd_text }}</span>
+            </div>
+            <div class="col-6 col-md-3 p-3 text-center border-secondary">
+                <small class="text-secondary fw-bold tracking-widest d-block mb-1">ÖNC. KAPANIŞ</small>
+                <span class="fs-4 fw-bold font-monospace text-light">{{ stock.previous_close|number_format(2, ',', '.') }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Grafik -->
+        <div class="col-lg-8 mb-4">
+            <div class="card-custom p-0 rounded-4 overflow-hidden border-secondary shadow-lg h-100" style="min-height: 500px;">
+                <div class="tradingview-widget-container" style="height: 100%; width: 100%;">
+                    <div id="tv_chart_widget" style="height: calc(100% - 32px); width: 100%;"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                    <script type="text/javascript">
+                    new TradingView.widget(
+                    {
+                        "autosize": true,
+                        "symbol": "BIST:{{ symbol }}",
+                        "interval": "D",
+                        "timezone": "Europe/Istanbul",
+                        "theme": "dark",
+                        "style": "1",
+                        "locale": "tr",
+                        "enable_publishing": false,
+                        "backgroundColor": "#111827",
+                        "hide_top_toolbar": false,
+                        "hide_legend": false,
+                        "save_image": false,
+                        "container_id": "tv_chart_widget",
+                        "studies": ["RSI@tv-basicstudies", "MACD@tv-basicstudies"]
+                    }
+                    );
+                    </script>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Log -->
+        <div class="col-lg-4 mb-4">
+            <div class="card-custom p-4 shadow-sm border-secondary mb-4 h-100">
+                <h4 class="fw-bold text-light mb-3 border-bottom border-secondary pb-2">
+                    <i class="bi bi-robot text-warning me-2"></i>BAM AI Yorumu
+                </h4>
+                {% if stock.ai_log %}
+                    <div class="mb-3">
+                        <span class="badge bg-dark border border-secondary text-light fs-6 px-3 py-2">{{ stock.ai_log.status|capitalize }}</span>
+                        <div class="small text-secondary mt-2">
+                            <i class="bi bi-clock"></i> AI Üretim: {{ stock.ai_log.scanDate|date('d.m.Y H:i') }}
+                        </div>
+                    </div>
+                    {% if stock.ai_log.reasons %}
+                        <ul class="list-unstyled mb-0 lh-lg">
+                            {% for reason in stock.ai_log.reasons %}
+                                <li class="mb-2 text-light small"><i class="bi bi-check2-circle text-success me-2"></i>{{ reason }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4 opacity-50">
+                        <i class="bi bi-hourglass-split fs-1 mb-2 d-block"></i>
+                        <span class="text-secondary">Yapay zeka bu hisse için henüz yorum üretmedi.</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+    function fetchLiveMarketData() {
+        fetch('/api/market/poll?symbol={{ symbol }}')
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    const st = data.data;
+                    document.getElementById('lastUpdateText').innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> SON GÜNCELLEME: ' + data.updatedAt;
+                    document.getElementById('priceVal').innerText = parseFloat(st.price).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    document.getElementById('changeVal').innerText = Math.abs(parseFloat(st.change_percent)).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    
+                    const change = parseFloat(st.change_percent);
+                    const colorClass = change > 0 ? 'text-success' : (change < 0 ? 'text-danger' : 'text-secondary');
+                    const bgClass = change > 0 ? 'bg-green-soft' : (change < 0 ? 'bg-red-soft' : 'bg-dark');
+                    const icon = change > 0 ? '▲' : (change < 0 ? '▼' : '▬');
+                    
+                    document.getElementById('livePriceCard').children[0].className = 'p-4 border-bottom border-secondary d-flex flex-column flex-md-row justify-content-between align-items-md-center ' + bgClass;
+                    document.getElementById('changeContainer').className = 'fs-5 fw-bold d-flex justify-content-md-end align-items-center gap-2 mt-1 ' + colorClass;
+                    document.getElementById('changeIcon').innerText = icon;
+                    
+                    if (st.bam_score !== undefined) {
+                        const scoreBg = st.bam_score >= 70 ? 'text-success' : (st.bam_score >= 50 ? 'text-warning' : 'text-danger');
+                        document.getElementById('bamScoreVal').innerText = st.bam_score + ' / 100';
+                        document.getElementById('bamScoreVal').className = 'fs-4 fw-bold font-monospace ' + scoreBg;
+                    }
+
+                    if (st.macd_hist !== null) {
+                        const macdText = st.macd_hist > 0 ? 'AL' : 'SAT';
+                        const macdColor = st.macd_hist > 0 ? 'text-success' : 'text-danger';
+                        document.getElementById('macdVal').innerText = macdText;
+                        document.getElementById('macdVal').className = 'fs-4 fw-bold font-monospace ' + macdColor;
+                    }
+
+                    if (st.rsi !== null) {
+                        const rsi = parseFloat(st.rsi);
+                        const rsiColor = rsi > 70 ? 'text-danger' : (rsi < 30 ? 'text-success' : 'text-warning');
+                        document.getElementById('rsiVal').innerText = rsi.toLocaleString('tr-TR', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+                        document.getElementById('rsiVal').className = 'fs-4 fw-bold font-monospace ' + rsiColor;
+                    }
+                }
+            });
+    }
+    setInterval(fetchLiveMarketData, 20000);
+</script>
+{% endblock %}

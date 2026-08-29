@@ -2,11 +2,13 @@
 
 namespace App\Command;
 
-use App\Entity\Stock;
-use App\Repository\StockRepository;
 use App\Service\BistUniverseService;
+use App\Service\MarketCacheService;
+use App\Service\YahooHistoryService;
+use App\Service\TechnicalAnalysisService;
+use App\Service\OpportunityScoringService;
+use App\Repository\OpportunityCandidateRepository;
 use App\Service\TradingViewMarketService;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -16,23 +18,26 @@ use Symfony\Component\Lock\LockFactory;
 
 #[AsCommand(
     name: 'app:market:fetch-bulk',
-    description: 'TradingView uzerinden 116 hisseyi tek seferde ceker ve veritabanina gunceller.',
+    description: 'TradingView uzerinden 116 hisseyi ceker, teknik analizi gunceller ve cache e yazar.',
 )]
 class MarketFetchBulkCommand extends Command
 {
     public function __construct(
         private readonly BistUniverseService $universeService,
         private readonly TradingViewMarketService $tradingViewService,
-        private readonly EntityManagerInterface $em,
-        private readonly StockRepository $stockRepository,
         private readonly LockFactory $lockFactory,
+        private readonly MarketCacheService $cacheService,
+        private readonly YahooHistoryService $historyService,
+        private readonly TechnicalAnalysisService $technicalAnalysis,
+        private readonly OpportunityScoringService $scoringService,
+        private readonly OpportunityCandidateRepository $candidateRepository,
     ) {
         parent::__construct();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $lock = $this->lockFactory->createLock('market_fetch_bulk', 50.0, false);
+        $lock = $this->lockFactory->createLock('market_fetch_bulk', 120.0, false);
         if (!$lock->acquire()) {
             (new SymfonyStyle($input, $output))->warning('Baska bir toplu cekim halen calisiyor.');
             return Command::SUCCESS;
@@ -55,8 +60,6 @@ class MarketFetchBulkCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->info(sprintf('%d sembol TradingView\'den toplu cekiliyor...', count($symbols)));
-        
         $results = $this->tradingViewService->fetchBulkPrices($symbols);
 
         if (empty($results)) {
@@ -64,54 +67,78 @@ class MarketFetchBulkCommand extends Command
             return Command::FAILURE;
         }
 
-        $count = 0;
-        $now = new \DateTime();
-
-        foreach ($results as $symbol => $data) {
-            $existingStock = clone ($this->stockRepository->findLatest($symbol) ?? clone (new Stock()));
-            
-            $newStock = new Stock();
-            $newStock->setSymbol($symbol);
-            $newStock->setPrice($data['price']);
-            $newStock->setPreviousClose($data['price'] / (1 + ($data['change'] / 100)));
-            $newStock->setCreatedAt($now);
-            
-            // Handle uninitialized properties from cloned empty Stock safely
-            try {
-                $open = $existingStock->getOpen();
-            } catch (\Error) {
-                $open = null;
+        // YahooHistoryService uses a 6-hour internal cache. 
+        // It does NOT hit Yahoo Finance every minute. It reads from Symfony cache.
+        $historyMap = $this->historyService->fetchBatch($symbols);
+        
+        // AI Loglari (Satte bir yenilenen dosya önbelleği, DB'yi yormamak için)
+        $aiCacheFile = 'var/ai_log_cache.json';
+        if (file_exists($aiCacheFile) && time() - filemtime($aiCacheFile) < 3600) {
+            $aiLogs = json_decode(file_get_contents($aiCacheFile), true) ?? [];
+        } else {
+            $latestOpportunities = $this->candidateRepository->findBy([], ['scanDate' => 'DESC'], 500);
+            $aiLogs = [];
+            foreach ($latestOpportunities as $opp) {
+                if (!isset($aiLogs[$opp->getSymbol()])) {
+                    $aiLogs[$opp->getSymbol()] = [
+                        'score' => $opp->getScore(),
+                        'status' => $opp->getStatus(),
+                        'reasons' => $opp->getReasons(),
+                        'scanDate' => $opp->getScanDate()->format('c'),
+                    ];
+                }
             }
-            
-            try {
-                $high = $existingStock->getHigh();
-            } catch (\Error) {
-                $high = null;
-            }
-            
-            try {
-                $low = $existingStock->getLow();
-            } catch (\Error) {
-                $low = null;
-            }
-
-            try {
-                $vol = $existingStock->getVolume();
-            } catch (\Error) {
-                $vol = null;
-            }
-
-            $newStock->setOpen($open ?? $data['price']);
-            $newStock->setHigh($high ?? $data['price']);
-            $newStock->setLow($low ?? $data['price']);
-            $newStock->setVolume($vol ?? 0);
-
-            $this->em->persist($newStock);
-            $count++;
+            @file_put_contents($aiCacheFile, json_encode($aiLogs));
         }
 
-        $this->em->flush();
-        $io->success(sprintf('%d adet sembol basariyla veritabanina kaydedildi.', $count));
+        $oldCache = $this->cacheService->read()['data'] ?? [];
+        $cacheData = $oldCache; 
+        
+        $count = 0;
+
+        foreach ($results as $symbol => $data) {
+            try {
+                $previousClose = $data['price'] / (1 + ($data['change'] / 100));
+                $bars = $historyMap[$symbol]['bars'] ?? [];
+                
+                if (!empty($bars)) {
+                    $lastKnown = end($bars);
+                    $bars[] = [
+                        'close'  => $data['price'],
+                        'open'   => $lastKnown['close'] ?? $data['price'],
+                        'high'   => max($lastKnown['close'] ?? $data['price'], $data['price']),
+                        'low'    => min($lastKnown['close'] ?? $data['price'], $data['price']),
+                        'volume' => $lastKnown['volume'] ?? 0,
+                    ];
+                }
+                
+                $technicalData = $this->technicalAnalysis->analyze($bars);
+                $bamScoreData = $this->scoringService->score($technicalData);
+                
+                $cacheData[$symbol] = [
+                    'symbol' => $symbol,
+                    'price' => $data['price'],
+                    'change_percent' => $data['change'],
+                    'previous_close' => $previousClose,
+                    'rsi' => $technicalData['rsi14'] ?? null,
+                    'macd_signal' => $technicalData['macd']['signal'] ?? null,
+                    'macd_hist' => $technicalData['macd']['histogram'] ?? null,
+                    'sma50' => $technicalData['sma50'] ?? null,
+                    'sma200' => $technicalData['sma200'] ?? null,
+                    'bam_score' => $bamScoreData['score'] ?? 0,
+                    'ai_log' => $aiLogs[$symbol] ?? null,
+                    'updated_at' => time(),
+                ];
+
+                $count++;
+            } catch (\Throwable $e) {
+                $io->warning(sprintf('%s icin islem sirasinda hata: %s', $symbol, $e->getMessage()));
+                continue;
+            }
+        }
+        
+        $this->cacheService->writeAtomic($cacheData);
+        $io->success(sprintf('%d adet sembol basariyla JSON cache guncellendi.', $count));
 
         return Command::SUCCESS;
     }

@@ -22,6 +22,13 @@ class Schedule implements ScheduleProviderInterface
         return (new SymfonySchedule())
             ->stateful($this->cache) // ensure missed tasks are executed
             ->processOnlyLastMissedRun(true) // ensure only last missed task is run
+
+            ->add(RecurringMessage::cron(
+                '* 10-18 * * 1-5',
+                new RunCommandMessage('app:market:fetch-bulk'),
+                'Europe/Istanbul'
+            ))
+
             ->add(RecurringMessage::cron(
                 '*/2 10-18 * * 1-5',
                 new RunCommandMessage('app:prices:refresh'),
