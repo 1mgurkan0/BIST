@@ -11,7 +11,7 @@ class YahooHistoryService
 {
     private const HISTORY_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=1y&events=history';
     private const BATCH_HISTORY_URL = 'https://query1.finance.yahoo.com/v7/finance/spark?symbols=%s&range=1y&interval=1d';
-    private const MAX_BATCH_SIZE = 50;
+    private const MAX_BATCH_SIZE = 20;
     private const CACHE_TTL = 21600;
     private const LAST_SUCCESS_TTL = 604800;
     private const GLOBAL_BLOCK_KEY = 'yahoo.block.global';

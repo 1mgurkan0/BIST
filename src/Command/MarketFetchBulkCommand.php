@@ -67,11 +67,9 @@ class MarketFetchBulkCommand extends Command
             return Command::FAILURE;
         }
 
-        // YahooHistoryService uses a 6-hour internal cache. 
-        // It does NOT hit Yahoo Finance every minute. It reads from Symfony cache.
         $historyMap = $this->historyService->fetchBatch($symbols);
+        file_put_contents('var/debug_history.json', json_encode($historyMap['THYAO'] ?? ['error' => 'Not found']));
         
-        // AI Loglari (Satte bir yenilenen dosya önbelleği, DB'yi yormamak için)
         $aiCacheFile = 'var/ai_log_cache.json';
         if (file_exists($aiCacheFile) && time() - filemtime($aiCacheFile) < 3600) {
             $aiLogs = json_decode(file_get_contents($aiCacheFile), true) ?? [];
@@ -89,6 +87,14 @@ class MarketFetchBulkCommand extends Command
                 }
             }
             @file_put_contents($aiCacheFile, json_encode($aiLogs));
+        }
+
+        // XU100 verisi (Dongu disinda tek seferlik)
+        try {
+            $xu100History = $this->historyService->fetchBatch(['XU100'])['XU100'] ?? ['bars' => []];
+            $xu100Technical = $this->technicalAnalysis->analyze($xu100History['bars'] ?? []);
+        } catch (\Throwable $e) {
+            $xu100Technical = ['status' => 'insufficient_history'];
         }
 
         $oldCache = $this->cacheService->read()['data'] ?? [];
@@ -113,7 +119,10 @@ class MarketFetchBulkCommand extends Command
                 }
                 
                 $technicalData = $this->technicalAnalysis->analyze($bars);
-                $bamScoreData = $this->scoringService->score($technicalData);
+                $technicalData['xu100'] = $xu100Technical;
+                
+                $history = $historyMap[$symbol] ?? ['bars' => [], 'status' => 'stale'];
+                $bamScoreData = $this->scoringService->score($technicalData, $history);
                 
                 $cacheData[$symbol] = [
                     'symbol' => $symbol,
@@ -143,3 +152,4 @@ class MarketFetchBulkCommand extends Command
         return Command::SUCCESS;
     }
 }
+

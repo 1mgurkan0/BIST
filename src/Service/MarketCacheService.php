@@ -6,19 +6,19 @@ use RuntimeException;
 
 class MarketCacheService
 {
-    private string $cacheFile;
+    private string $projectDir;
 
     public function __construct(
         #[\Symfony\Component\DependencyInjection\Attribute\Autowire('%kernel.project_dir%')]
         string $projectDir
-    )
-    {
-        $this->cacheFile = rtrim($projectDir, '/') . '/var/market_cache.json';
+    ) {
+        $this->projectDir = rtrim($projectDir, '/');
     }
 
-    public function writeAtomic(array $data): void
+    public function writeAtomicTo(string $filename, array $data): void
     {
-        $tmpFile = $this->cacheFile . '.' . uniqid('tmp', true);
+        $path = $this->projectDir . '/var/' . $filename;
+        $tmpFile = $path . '.' . uniqid('tmp', true);
         $json = json_encode([
             'updatedAt' => time(),
             'data' => $data
@@ -28,19 +28,19 @@ class MarketCacheService
             throw new RuntimeException("Failed to write to temporary cache file: $tmpFile");
         }
 
-        if (!rename($tmpFile, $this->cacheFile)) {
+        if (!rename($tmpFile, $path)) {
             @unlink($tmpFile);
-            throw new RuntimeException("Failed to atomic rename temporary cache file to: {$this->cacheFile}");
+            throw new RuntimeException("Failed to atomic rename temporary cache file to: {$path}");
         }
     }
 
-    public function read(): array
+    public function readFrom(string $filename): array
     {
-        if (!file_exists($this->cacheFile)) {
+        if (!file_exists($this->projectDir . '/var/' . $filename)) {
             return ['updatedAt' => 0, 'data' => []];
         }
 
-        $json = file_get_contents($this->cacheFile);
+        $json = file_get_contents($this->projectDir . '/var/' . $filename);
         if ($json === false) {
             return ['updatedAt' => 0, 'data' => []];
         }
@@ -52,5 +52,15 @@ class MarketCacheService
 
         return $data;
     }
-}
 
+    // Geriye dönük uyumluluk
+    public function writeAtomic(array $data): void
+    {
+        $this->writeAtomicTo('market_cache.json', $data);
+    }
+
+    public function read(): array
+    {
+        return $this->readFrom('market_cache.json');
+    }
+}

@@ -1,266 +1,150 @@
 {% extends 'base.html.twig' %}
+
+{% block title %}Borsa İstanbul Canlı Fiyatlar - BAM Terminal{% endblock %}
+{% block meta_description %}BIST 30, BIST 50 ve BIST 100 hisseleri için canlı fiyatlar, değişim oranları ve anlık borsa verileri.{% endblock %}
+
 {% block content %}
-<div class="container bam-shell">
-    
-    <!-- 1. ANALÄ°Z MOTORU (ÃœST KISIM) -->
-    <section class="bam-card p-5 mb-5 text-center shadow-lg" style="background: linear-gradient(145deg, #1f2937 0%, #111827 100%); border-color: rgba(245,158,11,0.2);">
-        <h1 class="display-5 fw-bolder mb-3 text-white tracking-widest">
-            <i class="bi bi-cpu text-warning me-2"></i>BAM <span class="text-warning">ANALÄ°Z</span> MOTORU
-        </h1>
-        <p class="text-secondary mb-4 fs-5">BIST Hisselerini saniyeler iÃ§inde yapay zeka ile analiz edin.</p>
-        
-        <form method="get" class="d-flex flex-column flex-md-row gap-3 m-0 justify-content-center max-w-lg mx-auto" style="max-width: 600px;">
-            <div class="input-group input-group-lg shadow-sm">
-                <span class="input-group-text bg-dark border-secondary text-warning px-4">
+<div class="container bam-shell pt-4">
+
+    <!-- ARAMA MOTORU (ORİJİNAL TASARIM) -->
+    <section class="bam-card p-4 mb-5">
+        <div class="bam-section-head mb-4">
+            <div>
+                <div class="bam-eyebrow">Kişisel terminal</div>
+                <h1 class="bam-title h2 mb-1">Hisse Analiz Merkezi</h1>
+                <div class="bam-muted small">
+                    {% if app.user %}
+                        {{ app.user.email }}
+                    {% else %}
+                        BAM karar ekranı
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                {% if app.user %}
+                    <a href="{{ path('app_watchlist') }}" class="btn bam-action-link btn-sm px-3" title="Takip listesi">
+                        <i class="bi bi-radar"></i>
+                    </a>
+                    <a href="{{ path('app_portfolio') }}" class="btn bam-action-link btn-sm px-3" title="Portföy">
+                        <i class="bi bi-briefcase"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <form action="{{ path('app_stock_search') }}" method="get" class="d-flex flex-column flex-md-row gap-2 m-0">
+            <div class="input-group">
+                <span class="input-group-text bg-transparent border-secondary text-secondary">
                     <i class="bi bi-search"></i>
                 </span>
-                <input type="text"
-                       name="symbol"
-                       value="{{ symbol|default('') }}"
-                       class="form-control bg-dark border-secondary text-white text-uppercase fw-bold tracking-widest fs-4 shadow-none"
-                       placeholder="Ã–rn: THYAO, ASELS..."
-                       required>
-                <button type="submit" class="btn btn-warning fw-bold px-5 tracking-widest">
-                    ANALÄ°Z ET
-                </button>
+                <input type="text" name="q" class="form-control form-control-lg bg-dark border-secondary text-light shadow-none" placeholder="Sembol (THYAO vb.)" required>
             </div>
+            <button type="submit" class="btn btn-warning px-4 fw-bold">Analiz Et</button>
         </form>
-
-        <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-4">
-            <span class="text-secondary small fw-bold tracking-widest me-2">SON ARANANLAR:</span>
-            <div id="sonArananlarList" class="d-flex flex-wrap gap-2"></div>
-        </div>
     </section>
 
-    <!-- 2. EÄžER BÄ°R HÄ°SSE ARATILDIYSA (DETAY BÃ–LÃœMÃœ) -->
-    {% if symbol is defined and symbol is not empty %}
-        
-        <div class="mb-5 d-flex justify-content-between align-items-center">
-            <h2 class="h3 fw-bold text-light mb-0"><i class="bi bi-bar-chart-fill text-warning me-2"></i>{{ symbol|upper }} Analiz SonuÃ§larÄ±</h2>
-            <a href="{{ path('app-home') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                <i class="bi bi-x-lg me-1"></i> Kapat
-            </a>
+    <!-- YERLİ HTML BORSA TABLOLARI -->
+    <div class="mt-4 mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+            <h2 class="fw-bold text-light mb-0 tracking-widest"><i class="bi bi-bar-chart-line-fill text-warning me-2"></i>BAM CANLI PİYASA</h2>
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-clock-history text-secondary"></i>
+                <span class="text-secondary small font-monospace">Son Güncelleme: <strong class="text-light">{{ lastUpdate }}</strong></span>
+            </div>
         </div>
 
-        {% if stock is defined and stock is not null %}
-            {% set degisim = stock.price - stock.previousClose %}
-            {% set yuzde = stock.previousClose > 0 ? (degisim / stock.previousClose) * 100 : 0 %}
-            {% set text_renk = degisim >= 0 ? 'text-success' : 'text-danger' %}
-            {% set card_bg = degisim >= 0 ? 'bg-green-soft' : 'bg-red-soft' %}
-            {% set ikon = degisim >= 0 ? 'â–²' : 'â–¼' %}
-
-            <div class="card-custom shadow-lg overflow-hidden mb-5 border-0">
-                <div class="p-4 border-bottom border-secondary d-flex flex-column flex-md-row justify-content-between align-items-md-center {{ card_bg }}">
-                    <div class="mb-3 mb-md-0">
-                        <h1 class="display-3 fw-bolder mb-0 tracking-widest text-white">{{ stock.symbol|upper }}</h1>
-                        <small class="text-secondary font-monospace">
-                            <i class="bi bi-arrow-repeat me-1"></i>
-                            SON GÃœNCELLEME: {{ stock.createdAt|date('d.m.Y H:i:s') }}
-                        </small>
-                    </div>
-                    <div class="text-md-end">
-                        <div class="display-5 font-monospace fw-bold text-white">
-                            {{ stock.price|number_format(2, ',', '.') }}
-                            <span class="fs-4 text-secondary">TL</span>
-                        </div>
-                        <div class="fs-5 fw-bold {{ text_renk }} d-flex justify-content-md-end align-items-center gap-2 mt-1">
-                            <span>{{ ikon }}</span>
-                            <span>{{ degisim|number_format(2, ',', '.') }}</span>
-                            <span class="badge bg-dark text-light border border-secondary rounded-pill px-3 py-2">
-                                %{{ yuzde|abs|number_format(2, ',', '.') }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-0 border-bottom border-secondary" style="background-color: #374151;">
-                    <div class="col-6 col-md-3 p-3 text-center border-end border-bottom border-md-bottom-0 border-secondary">
-                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">AÃ‡ILIÅž</small>
-                        <span class="fs-5 fw-bold font-monospace text-light">{{ stock.open|number_format(2, ',', '.') }}</span>
-                    </div>
-                    <div class="col-6 col-md-3 p-3 text-center border-end-md border-bottom border-md-bottom-0 border-secondary">
-                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">GÃœN YÃœKSEÄžÄ°</small>
-                        <span class="fs-5 fw-bold font-monospace text-success">{{ stock.high|number_format(2, ',', '.') }}</span>
-                    </div>
-                    <div class="col-6 col-md-3 p-3 text-center border-end border-secondary">
-                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">GÃœN DÃœÅžÃœÄžÃœ</small>
-                        <span class="fs-5 fw-bold font-monospace text-danger">{{ stock.low|number_format(2, ',', '.') }}</span>
-                    </div>
-                    <div class="col-6 col-md-3 p-3 text-center border-secondary">
-                        <small class="text-secondary fw-bold tracking-widest d-block mb-1">Ã–NC. KAPANIÅž</small>
-                        <span class="fs-5 fw-bold font-monospace text-light">{{ stock.previousClose|number_format(2, ',', '.') }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- KAP Haberleri ve Yapay Zeka Ã–zeti -->
-            <div class="text-center mt-4 mb-5">
-                <button onclick="toggleNewsList()" class="btn btn-outline-warning rounded-pill px-5 py-3 fw-bold shadow-sm tracking-widest">
-                    <i id="arrowIcon" class="bi bi-chevron-down me-2"></i> KAP HABERLERÄ° VE AI ANALÄ°ZLERÄ°
+        <!-- TAB NAVIGASYON -->
+        <ul class="nav nav-pills mb-4 gap-2 border-bottom border-secondary pb-3" id="pills-tab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active rounded-pill fw-bold px-4 shadow-sm" id="pills-bist100-tab" data-bs-toggle="pill" data-bs-target="#pills-bist100" type="button" role="tab" aria-controls="pills-bist100" aria-selected="true">
+                    BIST 100
                 </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold px-4 shadow-sm text-light" id="pills-bist50-tab" data-bs-toggle="pill" data-bs-target="#pills-bist50" type="button" role="tab" aria-controls="pills-bist50" aria-selected="false">
+                    BIST 50
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold px-4 shadow-sm text-light" id="pills-bist30-tab" data-bs-toggle="pill" data-bs-target="#pills-bist30" type="button" role="tab" aria-controls="pills-bist30" aria-selected="false">
+                    BIST 30
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold px-4 shadow-sm text-warning" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all" type="button" role="tab" aria-controls="pills-all" aria-selected="false">
+                    Tüm Hisseler (116)
+                </button>
+            </li>
+        </ul>
 
-                <div id="newsListContainer" class="d-none mt-4 text-start">
-                    {% if newsList is defined and newsList is not empty %}
-                        <div class="row g-4">
-                            {% for news in newsList %}
-                                {% set isAnalyzed = news.isAnalyzed and news.sentimentScore is not null %}
-                                <div class="col-12">
-                                    <div class="card-custom p-4 shadow-sm border-start border-4 {{ isAnalyzed ? (news.sentimentScore >= 70 ? 'border-success' : (news.sentimentScore <= -70 ? 'border-danger' : 'border-warning')) : 'border-secondary' }}">
-                                        <div class="d-flex justify-content-between align-items-start border-bottom border-secondary pb-3 mb-3">
-                                            <div>
-                                                {% if isAnalyzed %}
-                                                    <div class="d-flex align-items-center gap-2 mb-1">
-                                                        <span class="small text-secondary fw-bold tracking-widest">DUYGU PUANI:</span>
-                                                        <span class="fs-5 fw-bold {{ news.sentimentScore >= 70 ? 'text-success' : (news.sentimentScore <= -70 ? 'text-danger' : 'text-warning') }}">
-                                                            {{ news.sentimentScore }} / 100
-                                                        </span>
-                                                    </div>
-                                                {% else %}
-                                                    <div class="small text-secondary fw-bold tracking-widest mb-1">
-                                                        <i class="bi bi-hourglass-split me-1"></i> AI ANALÄ°ZÄ° BEKLÄ°YOR
-                                                    </div>
-                                                {% endif %}
-                                                <div class="small text-secondary">
-                                                    <i class="bi bi-calendar3 me-1"></i> {{ news.publishedAt|date('d.m.Y H:i') }}
-                                                </div>
-                                            </div>
-                                            <a href="https://www.kap.org.tr/tr/Bildirim/{{ news.kapId }}" target="_blank" class="btn btn-sm btn-outline-info rounded-pill px-3">
-                                                KAP'ta GÃ¶r <i class="bi bi-box-arrow-up-right ms-1"></i>
-                                            </a>
-                                        </div>
-                                        <h5 class="text-light mb-3">{{ news.title }}</h5>
-                                        <div class="ai-summary-box small lh-lg">
-                                            <i class="bi {{ isAnalyzed ? 'bi-robot text-yellow-custom' : 'bi-building text-secondary' }} me-2 fs-5"></i>
-                                            {{ (isAnalyzed ? news.aiSummary : news.content)|nl2br }}
-                                        </div>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="card-custom text-secondary p-5 text-center border-secondary">
-                            <i class="bi bi-inbox fs-1 mb-3 d-block opacity-50"></i>
-                            <p class="mb-0 fs-5">"{{ symbol }}" iÃ§in son 1 haftaya ait KAP haberi bulunamadÄ±.</p>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-
-        {% else %}
-            <div class="alert alert-danger bg-red-soft border-danger text-danger text-center rounded-4 p-5 shadow-lg mt-4 mb-5">
-                <i class="bi bi-exclamation-triangle-fill display-4 mb-3 d-block"></i>
-                <h4 class="fw-bold mb-2">Veri BulunamadÄ±</h4>
-                <p class="mb-0 text-white-50">
-                    {{ marketDataStatus.message|default('"' ~ symbol ~ '" sembolÃ¼ iÃ§in veri bulunamadÄ±.') }}
-                </p>
-            </div>
-        {% endif %}
-
-    {% else %}
-        
-        <!-- YERLÄ° HTML BORSA TABLOLARI -->
-        <div class="mt-4 mb-5">
-            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
-                <h2 class="fw-bold text-light mb-0 tracking-widest"><i class="bi bi-bar-chart-line-fill text-warning me-2"></i>BAM CANLI PÄ°YASA</h2>
-                <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-clock-history text-secondary"></i>
-                    <span class="text-secondary small font-monospace">Son GÃ¼ncelleme: <strong class="text-light">{{ lastUpdate }}</strong></span>
-                </div>
-            </div>
-
-            <!-- TAB NAVIGASYON -->
-            <ul class="nav nav-pills mb-4 gap-2 border-bottom border-secondary pb-3" id="pills-tab" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active rounded-pill fw-bold px-4 shadow-sm" id="pills-bist100-tab" data-bs-toggle="pill" data-bs-target="#pills-bist100" type="button" role="tab" aria-controls="pills-bist100" aria-selected="true">
-                        BIST 100
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link rounded-pill fw-bold px-4 shadow-sm text-light" id="pills-bist50-tab" data-bs-toggle="pill" data-bs-target="#pills-bist50" type="button" role="tab" aria-controls="pills-bist50" aria-selected="false">
-                        BIST 50
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link rounded-pill fw-bold px-4 shadow-sm text-light" id="pills-bist30-tab" data-bs-toggle="pill" data-bs-target="#pills-bist30" type="button" role="tab" aria-controls="pills-bist30" aria-selected="false">
-                        BIST 30
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link rounded-pill fw-bold px-4 shadow-sm text-warning" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all" type="button" role="tab" aria-controls="pills-all" aria-selected="false">
-                        TÃ¼m Hisseler (116)
-                    </button>
-                </li>
-            </ul>
-
-            <!-- TAB Ä°Ã‡ERÄ°KLERÄ° -->
-            <div class="tab-content" id="pills-tabContent">
-                
-                {% macro renderStockTable(stocks) %}
-                    {% if stocks is empty %}
-                        <div class="text-center p-5 text-secondary">Veri bulunamadÄ±. LÃ¼tfen "php bin/console app:market:fetch-bulk" komutunu Ã§alÄ±ÅŸtÄ±rÄ±n.</div>
-                    {% else %}
-                        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                            {% set chunk_size = (stocks|length / 3)|round(0, 'ceil') %}
-                            {% for column_stocks in stocks|batch(chunk_size) %}
-                                <div class="col">
-                                    <div class="table-responsive rounded-4 shadow-lg border border-secondary" style="background-color: #111827;">
-                                        <table class="table table-dark table-hover mb-0 align-middle table-borderless">
-                                            <thead class="table-secondary text-dark border-bottom border-dark">
-                                                <tr>
-                                                    <th class="py-3 px-3">Menkul</th>
-                                                    <th class="py-3 px-3 text-end">Fiyat</th>
-                                                    <th class="py-3 px-3 text-end">%</th>
-                                                    <th class="py-3 px-3 text-end">Zaman</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for st in column_stocks %}
-                                                    {% set degisim = st.price - st.previous_close %}
-                                                    {% set yuzde = st.previous_close > 0 ? (degisim / st.previous_close) * 100 : 0 %}
-                                                    {% set text_renk = degisim > 0 ? 'text-success' : (degisim < 0 ? 'text-danger' : 'text-secondary') %}
-                                                    {% set ikon = degisim > 0 ? 'â–²' : (degisim < 0 ? 'â–¼' : 'â–¬') %}
-                                                    
-                                                    <tr class="border-bottom border-secondary border-opacity-25" style="cursor: pointer;" onclick="window.location='?symbol={{ st.symbol }}'">
-                                                        <td class="py-2 px-3 fw-bold text-light">
-                                                            {{ st.symbol }}
-                                                        </td>
-                                                        <td class="py-2 px-3 text-end fw-bold font-monospace {{ text_renk }}">
-                                                            {{ st.price|number_format(2, ',', '.') }}
-                                                        </td>
-                                                        <td class="py-2 px-3 text-end fw-bold {{ text_renk }}">
-                                                            <span class="small me-1">{{ ikon }}</span>{{ yuzde|abs|number_format(2, ',', '.') }}
-                                                        </td>
-                                                        <td class="py-2 px-3 text-end text-secondary small font-monospace">
-                                                            {{ st.updated_at|date('H:i:s') }}
-                                                        </td>
-                                                    </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                {% endmacro %}
-
-                <div class="tab-pane fade show active" id="pills-bist100" role="tabpanel" aria-labelledby="pills-bist100-tab">
-                    {{ _self.renderStockTable(marketStocks.bist100) }}
-                </div>
-                <div class="tab-pane fade" id="pills-bist50" role="tabpanel" aria-labelledby="pills-bist50-tab">
-                    {{ _self.renderStockTable(marketStocks.bist50) }}
-                </div>
-                <div class="tab-pane fade" id="pills-bist30" role="tabpanel" aria-labelledby="pills-bist30-tab">
-                    {{ _self.renderStockTable(marketStocks.bist30) }}
-                </div>
-                <div class="tab-pane fade" id="pills-all" role="tabpanel" aria-labelledby="pills-all-tab">
-                    {{ _self.renderStockTable(marketStocks.all) }}
-                </div>
-            </div>
+        <!-- TAB İÇERİKLERİ -->
+        <div class="tab-content" id="pills-tabContent">
             
+            {% macro renderStockTable(stocks) %}
+                {% if stocks is empty %}
+                    <div class="text-center p-5 text-secondary">Veri bulunamadı. Lütfen arka planda sistemin çalışmasını bekleyin.</div>
+                {% else %}
+                    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                        {% set chunk_size = (stocks|length / 3)|round(0, 'ceil') %}
+                        {% for column_stocks in stocks|batch(chunk_size) %}
+                            <div class="col">
+                                <div class="table-responsive rounded-4 shadow-lg border border-secondary" style="background-color: #111827;">
+                                    <table class="table table-dark table-hover mb-0 align-middle table-borderless">
+                                        <thead class="table-secondary text-dark border-bottom border-dark">
+                                            <tr>
+                                                <th class="py-3 px-3">Menkul</th>
+                                                <th class="py-3 px-3 text-end">Fiyat</th>
+                                                <th class="py-3 px-3 text-end">%</th>
+                                                <th class="py-3 px-3 text-end">Zaman</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for st in column_stocks %}
+                                                {% set degisim = st.price - st.previous_close %}
+                                                {% set yuzde = st.previous_close > 0 ? (degisim / st.previous_close) * 100 : 0 %}
+                                                {% set text_renk = degisim > 0 ? 'text-success' : (degisim < 0 ? 'text-danger' : 'text-secondary') %}
+                                                {% set ikon = degisim > 0 ? '▲' : (degisim < 0 ? '▼' : '▬') %}
+                                                
+                                                <tr class="border-bottom border-secondary border-opacity-25" style="cursor: pointer;" onclick="window.location='{{ path('app_stock_detail', {'symbol': st.symbol}) }}'">
+                                                    <td class="py-2 px-3 fw-bold text-light">
+                                                        {{ st.symbol }}
+                                                    </td>
+                                                    <td class="py-2 px-3 text-end fw-bold font-monospace {{ text_renk }}">
+                                                        {{ st.price|number_format(2, ',', '.') }}
+                                                    </td>
+                                                    <td class="py-2 px-3 text-end fw-bold {{ text_renk }}">
+                                                        <span class="small me-1">{{ ikon }}</span>{{ yuzde|abs|number_format(2, ',', '.') }}
+                                                    </td>
+                                                    <td class="py-2 px-3 text-end text-secondary small font-monospace">
+                                                        {{ st.updated_at|date('H:i:s') }}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endmacro %}
+
+            <div class="tab-pane fade show active" id="pills-bist100" role="tabpanel" aria-labelledby="pills-bist100-tab">
+                {{ _self.renderStockTable(marketStocks.bist100) }}
+            </div>
+            <div class="tab-pane fade" id="pills-bist50" role="tabpanel" aria-labelledby="pills-bist50-tab">
+                {{ _self.renderStockTable(marketStocks.bist50) }}
+            </div>
+            <div class="tab-pane fade" id="pills-bist30" role="tabpanel" aria-labelledby="pills-bist30-tab">
+                {{ _self.renderStockTable(marketStocks.bist30) }}
+            </div>
+            <div class="tab-pane fade" id="pills-all" role="tabpanel" aria-labelledby="pills-all-tab">
+                {{ _self.renderStockTable(marketStocks.all) }}
+            </div>
         </div>
-    {% endif %}
+        
+    </div>
 
 </div>
 {% endblock %}
-

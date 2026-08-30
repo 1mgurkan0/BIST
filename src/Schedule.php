@@ -20,8 +20,14 @@ class Schedule implements ScheduleProviderInterface
     public function getSchedule(): SymfonySchedule
     {
         return (new SymfonySchedule())
-            ->stateful($this->cache) // ensure missed tasks are executed
-            ->processOnlyLastMissedRun(true) // ensure only last missed task is run
+            ->stateful($this->cache)
+            ->processOnlyLastMissedRun(true)
+
+            ->add(RecurringMessage::cron(
+                '0 8 * * 1-5',
+                new RunCommandMessage('app:market:fetch-fundamentals'),
+                'Europe/Istanbul'
+            ))
 
             ->add(RecurringMessage::cron(
                 '* 10-18 * * 1-5',
@@ -55,22 +61,22 @@ class Schedule implements ScheduleProviderInterface
                 'Europe/Istanbul'
             ))
             ->add(RecurringMessage::cron(
-                '30 10,14,16 * * 1-5', // Sabah 10:30, 14:30, 16:30
+                '30 10,14,16 * * 1-5',
                 new RunCommandMessage('app:opportunities:scan'),
                 'Europe/Istanbul'
             ))
             ->add(RecurringMessage::cron(
-                '15 18 * * 1-5', // Kapanış (18:15)
+                '15 18 * * 1-5',
                 new RunCommandMessage('app:opportunities:scan'),
                 'Europe/Istanbul'
             ))
             ->add(RecurringMessage::cron(
-                '35 10,14,16 * * 1-5', // Scan'den 5 dk sonra AI raporu
+                '35 10,14,16 * * 1-5',
                 new RunCommandMessage('app:daily-ai-report --opportunities'),
                 'Europe/Istanbul'
             ))
             ->add(RecurringMessage::cron(
-                '20 18 * * 1-5', // Kapanış Scan'inden 5 dk sonra AI raporu
+                '20 18 * * 1-5',
                 new RunCommandMessage('app:daily-ai-report --opportunities'),
                 'Europe/Istanbul'
             ))

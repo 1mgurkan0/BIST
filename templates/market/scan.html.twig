@@ -43,7 +43,7 @@
                         {% set macd_bg = st.macd_hist is not null ? (st.macd_hist > 0 ? 'bg-success' : 'bg-danger') : 'bg-secondary' %}
                         {% set score_bg = st.bam_score >= 70 ? 'bg-success' : (st.bam_score >= 50 ? 'bg-warning text-dark' : 'bg-danger') %}
                         
-                        <tr class="border-bottom border-secondary border-opacity-25" style="cursor: pointer;" onclick="window.location='/hisse/{{ st.symbol }}'">
+                        <tr class="border-bottom border-secondary border-opacity-25" style="cursor: pointer;" onclick="window.location='{{ path('app_stock_detail', {'symbol': st.symbol}) }}'">
                             <td class="py-3 px-4 fw-bold text-light fs-5">
                                 {{ st.symbol }}
                             </td>
@@ -81,7 +81,7 @@
                                 {% endif %}
                             </td>
                             <td class="py-3 px-4 text-end">
-                                <a href="/hisse/{{ st.symbol }}" class="btn btn-sm btn-outline-warning rounded-pill px-3 text-nowrap">
+                                <a href="{{ path('app_stock_detail', {'symbol': st.symbol}) }}" class="btn btn-sm btn-outline-warning rounded-pill px-3 text-nowrap">
                                     Grafik <i class="bi bi-graph-up ms-1"></i>
                                 </a>
                             </td>

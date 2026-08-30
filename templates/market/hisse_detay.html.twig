@@ -65,6 +65,31 @@
         </div>
     </div>
     
+    <!-- Şirket Künyesi -->
+    <div class="card-custom p-4 shadow-sm border-secondary mb-4" style="background-color: #111827;">
+        <h4 class="fw-bold text-light mb-3 border-bottom border-secondary pb-2">
+            <i class="bi bi-building text-warning me-2"></i>Şirket Künyesi
+        </h4>
+        <div class="row g-3 text-center">
+            <div class="col-6 col-md-3">
+                <small class="text-secondary d-block">F/K ORANI</small>
+                <span class="fs-5 fw-bold text-light">{{ fundamentals.pe_ratio|default('-') }}</span>
+            </div>
+            <div class="col-6 col-md-3">
+                <small class="text-secondary d-block">PİYASA DEĞERİ</small>
+                <span class="fs-5 fw-bold text-light">{{ fundamentals.market_cap|default(null) ? (fundamentals.market_cap / 1000000000)|number_format(2, ',', '.') ~ ' Milyar ₺' : '-' }}</span>
+            </div>
+            <div class="col-6 col-md-3">
+                <small class="text-secondary d-block">PD/DD</small>
+                <span class="fs-5 fw-bold text-light">{{ fundamentals.price_to_book|default('-') }}</span>
+            </div>
+            <div class="col-6 col-md-3">
+                <small class="text-secondary d-block">HİSSE BAŞINA KÂR</small>
+                <span class="fs-5 fw-bold text-light">{{ fundamentals.eps|default('-') }}</span>
+            </div>
+        </div>
+    </div>
+    
     <div class="row">
         <!-- Grafik -->
         <div class="col-lg-8 mb-4">
