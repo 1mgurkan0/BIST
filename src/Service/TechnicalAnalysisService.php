@@ -301,3 +301,4 @@ class TechnicalAnalysisService
         return $value === null ? null : round($value, 2);
     }
 }
+

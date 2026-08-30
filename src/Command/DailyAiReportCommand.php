@@ -155,7 +155,7 @@ class DailyAiReportCommand extends Command
             try {
                 [$aiData, $rawResponse, $analysisStatus] = $mockAi
                     ? $this->mockAiResult($symbol, $priceItem, $kapNews, $technical)
-                    : $this->askGemini($symbol, $priceItem, $kapNews, $technical, $history);
+                    : $this->askAi($symbol, $priceItem, $kapNews, $technical, $history);
                 if (str_starts_with($analysisStatus, 'fallback_')) {
                     $fallbacks++;
                 }
@@ -313,7 +313,7 @@ class DailyAiReportCommand extends Command
      * @param array<string, mixed> $history
      * @return array{0: array<string, mixed>, 1: string, 2: string}
      */
-    private function askGemini(string $symbol, array $priceItem, array $kapNews, array $technical, array $history): array
+    private function askAi(string $symbol, array $priceItem, array $kapNews, array $technical, array $history): array
     {
         $prompt = $this->buildPrompt($symbol, $priceItem, $kapNews, $technical, $history);
         $rawResponse = $this->aiProvider->askJson($prompt);
@@ -676,7 +676,7 @@ PROMPT;
 
     private function normalizeTrend(string $trend, int $score): string
     {
-        $trend = strtolower(trim(str_replace('nötr', 'notr', $trend)));
+        $trend = strtolower(trim(str_replace('nÃ¶tr', 'notr', $trend)));
 
         if (in_array($trend, [AiSymbolReport::TREND_NEGATIVE, AiSymbolReport::TREND_NEUTRAL, AiSymbolReport::TREND_POSITIVE], true)) {
             return $trend;
@@ -714,7 +714,7 @@ PROMPT;
 
     private function normalizeConfidence(string $confidence): string
     {
-        $confidence = strtolower(trim(str_replace(['düşük', 'yüksek'], ['dusuk', 'yuksek'], $confidence)));
+        $confidence = strtolower(trim(str_replace(['dÃ¼ÅŸÃ¼k', 'yÃ¼ksek'], ['dusuk', 'yuksek'], $confidence)));
 
         return in_array($confidence, ['dusuk', 'orta', 'yuksek'], true) ? $confidence : 'orta';
     }
@@ -799,7 +799,7 @@ PROMPT;
         usort($reports, fn(AiSymbolReport $a, AiSymbolReport $b): int => $b->getScore() <=> $a->getScore());
 
         if ($opportunityMode) {
-            $message = "🎯 <b>BAM BIST Firsat Radari</b>\n\n";
+            $message = "ðŸŽ¯ <b>BAM BIST Firsat Radari</b>\n\n";
             
             $aiConfirmed = array_filter(
                 $reports,
@@ -807,7 +807,7 @@ PROMPT;
             );
             usort($aiConfirmed, fn($a, $b) => $b->getScore() <=> $a->getScore());
             
-            $message .= "<b>🔥 AI Onayli Firsatlar (Potansiyel Alim)</b>\n";
+            $message .= "<b>ðŸ”¥ AI Onayli Firsatlar (Potansiyel Alim)</b>\n";
             if (empty($aiConfirmed)) {
                 $message .= "Maalesef bugun yapay zeka tarafindan onaylanan guclu bir firsat bulunamadi.\n";
             } else {
@@ -827,7 +827,7 @@ PROMPT;
                 return !in_array($r, $aiConfirmed, true);
             });
             if (!empty($rejected)) {
-                $message .= "\n<b>⚠️ Teknik Iyi Ama AI'dan Gecemeyenler / Nötrler</b>\n";
+                $message .= "\n<b>âš ï¸ Teknik Iyi Ama AI'dan Gecemeyenler / NÃ¶trler</b>\n";
                 foreach ($rejected as $r) {
                     $summary = mb_strlen($r->getRiskSummary()) > 1024 
                         ? mb_substr($r->getRiskSummary(), 0, 1020) . '...' 
@@ -836,15 +836,15 @@ PROMPT;
                 }
             }
         } else {
-            $message = "📊 <b>BAM Gun Sonu AI Raporu</b>\n\n";
+            $message = "ðŸ“Š <b>BAM Gun Sonu AI Raporu</b>\n\n";
             
             $portfolioReports = array_filter($reports, fn(AiSymbolReport $r) => $r->isPortfolio());
             usort($portfolioReports, fn($a, $b) => $b->getScore() <=> $a->getScore());
             
             if (!empty($portfolioReports)) {
-                $message .= "<b>💼 Portfoy Durumu</b>\n";
+                $message .= "<b>ðŸ’¼ Portfoy Durumu</b>\n";
                 foreach ($portfolioReports as $r) {
-                    $icon = $r->getScore() >= 70 ? '🟢' : ($r->getScore() <= 40 ? '🔴' : '🟡');
+                    $icon = $r->getScore() >= 70 ? 'ðŸŸ¢' : ($r->getScore() <= 40 ? 'ðŸ”´' : 'ðŸŸ¡');
                     $message .= sprintf(
                         "%s <b>%s</b>: %d/100 - %s\n",
                         $icon, $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml($r->trendLabelText())
@@ -858,7 +858,7 @@ PROMPT;
             usort($watchlistOpportunities, fn($a, $b) => $b->getScore() <=> $a->getScore());
 
             if (!empty($watchlistOpportunities)) {
-                $message .= "<b>👀 Takip Listendeki Firsatlar</b>\n";
+                $message .= "<b>ðŸ‘€ Takip Listendeki Firsatlar</b>\n";
                 foreach (array_slice($watchlistOpportunities, 0, 5) as $r) {
                     $message .= sprintf("- <b>%s</b> (%d/100) - %s\n", $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml($r->decisionLabelText()));
                 }
@@ -867,7 +867,7 @@ PROMPT;
 
             $riskyReports = array_filter($reports, fn(AiSymbolReport $r) => $r->getScore() <= 40 || str_starts_with($r->getAnalysisStatus(), 'fallback_'));
             if (!empty($riskyReports)) {
-                $message .= "<b>🚨 Riskliler / Hatalilar</b>\n";
+                $message .= "<b>ðŸš¨ Riskliler / Hatalilar</b>\n";
                 foreach (array_slice($riskyReports, 0, 3) as $r) {
                     $msg = str_starts_with($r->getAnalysisStatus(), 'fallback_') ? $r->getRiskSummary() : $r->decisionLabelText();
                     $message .= sprintf("- <b>%s</b>: %s\n", $this->escapeHtml($r->getSymbol()), $this->escapeHtml(mb_substr($msg, 0, 100)));
@@ -885,3 +885,4 @@ PROMPT;
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 }
+
