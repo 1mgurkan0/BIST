@@ -8,6 +8,7 @@ use App\Service\OpportunityScoringService;
 use App\Service\TechnicalAnalysisService;
 use App\Service\YahooHistoryService;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -29,6 +30,7 @@ class OpportunityScanCommand extends Command
         private readonly OpportunityScoringService $scoring,
         private readonly EntityManagerInterface $em,
         private readonly LockFactory $lockFactory,
+        private readonly LoggerInterface $logger,
     ) {
         parent::__construct();
     }
@@ -82,28 +84,32 @@ class OpportunityScanCommand extends Command
 
         $candidates = [];
         foreach ($symbols as $symbol) {
-            $history = $historyMap[$symbol] ?? [
-                'status' => 'missing_history',
-                'source' => 'none',
-                'isStale' => true,
-                'bars' => [],
-            ];
-            $technical = $this->technicalAnalysis->analyze(is_array($history['bars'] ?? null) ? $history['bars'] : []);
-            $technical['xu100'] = $xu100Technical; // Inject XU100 data
+            try {
+                $history = $historyMap[$symbol] ?? [
+                    'status' => 'missing_history',
+                    'source' => 'none',
+                    'isStale' => true,
+                    'bars' => [],
+                ];
+                $technical = $this->technicalAnalysis->analyze(is_array($history['bars'] ?? null) ? $history['bars'] : []);
+                $technical['xu100'] = $xu100Technical; // Inject XU100 data
 
-            $result = $this->scoring->score($technical, $history);
+                $result = $this->scoring->score($technical, $history);
 
-            $candidate = (new OpportunityCandidate())
-                ->setBatchId($batchId)
-                ->setSymbol($symbol)
-                ->setScore($result['score'])
-                ->setStatus($result['status'])
-                ->setHistoryStatus((string) ($history['status'] ?? 'missing_history'))
-                ->setIsHistoryStale((bool) ($history['isStale'] ?? true))
-                ->setTechnicalSnapshot($technical)
-                ->setReasons($result['reasons']);
-            $candidates[] = $candidate;
-
+                $candidate = (new OpportunityCandidate())
+                    ->setBatchId($batchId)
+                    ->setSymbol($symbol)
+                    ->setScore($result['score'])
+                    ->setStatus($result['status'])
+                    ->setHistoryStatus((string) ($history['status'] ?? 'missing_history'))
+                    ->setIsHistoryStale((bool) ($history['isStale'] ?? true))
+                    ->setTechnicalSnapshot($technical)
+                    ->setReasons($result['reasons']);
+                $candidates[] = $candidate;
+            } catch (\Throwable $e) {
+                $this->logger->error(sprintf('Sembol tarama hatasi: %s - %s', $symbol, $e->getMessage()), ['exception' => $e]);
+                continue;
+            }
         }
 
         usort($candidates, fn(OpportunityCandidate $a, OpportunityCandidate $b): int =>
