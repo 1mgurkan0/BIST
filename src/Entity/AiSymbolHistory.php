@@ -19,7 +19,7 @@ class AiSymbolHistory
     #[ORM\Column(length: 20)]
     private ?string $symbol = null;
 
-    #[ORM\Column(type: Types::DATE_MUTABLE)]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private ?\DateTimeInterface $recordDate = null;
 
     #[ORM\Column(length: 20)]
