@@ -451,19 +451,19 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
         $foundPercentages = array_filter(array_merge($pctMatches[1], $pctMatches[2]));
         foreach ($foundPercentages as $pct) {
             if (!$this->isCloseEnough((float) $pct, $allowedPercentages, 1.5)) {
-                $io->error("Halusinasyon tespiti! Uydurulan yuzde: " . $pct);
+                $io->error("Halusinasyon tespiti! Uydurulan yuzde: " . $pct); $io->warning("DEBUG - allowedPercentages: " . json_encode($allowedPercentages));
                 return false; 
             }
         }
 
-        preg_match_all('/RSI[^0-9]*([0-9]+(?:\.[0-9]+)?)/i', $aiText, $rsiMatches);
+        preg_match_all('/RSI(?:\s*\([0-9]+\))?\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)/i', $aiText, $rsiMatches);
         foreach ($rsiMatches[1] as $rsi) {
             if (!$this->isCloseEnough((float) $rsi, $allowedRsi, 1.0)) {
                 $io->error("Halusinasyon tespiti! Uydurulan RSI: " . $rsi); return false; 
             }
         }
 
-        preg_match_all('/MACD[^0-9-]*(-?[0-9]+(?:\.[0-9]+)?)/i', $aiText, $macdMatches);
+        preg_match_all('/MACD\s*[:\-]?\s*(?:De(?:g|ğ)er|Sinyal)?\s*(-?[0-9]+(?:\.[0-9]+)?)/i', $aiText, $macdMatches);
         foreach ($macdMatches[1] as $macd) {
             if (!$this->isCloseEnough((float) $macd, $allowedMacd, 0.1)) return false; 
         }
@@ -474,8 +474,8 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
         }
 
         $cleanText = preg_replace('/%[0-9.]+|[0-9.]+%/i', '', $aiText);
-        $cleanText = preg_replace('/RSI[^0-9]*[0-9.]+/i', '', $cleanText);
-        $cleanText = preg_replace('/MACD[^0-9-]*-[0-9.]+/i', '', $cleanText);
+        $cleanText = preg_replace('/RSI(?:\s*\([0-9]+\))?\s*[:\-]?\s*[0-9.]+/i', '', $cleanText);
+        $cleanText = preg_replace('/MACD\s*[:\-]?\s*(?:De(?:g|ğ)er|Sinyal)?\s*-?[0-9.]+/i', '', $cleanText);
         $cleanText = preg_replace('/[0-9.]+\s*kat/ui', '', $cleanText);
         $cleanText = preg_replace('/\b(?:202[0-9]|19[0-9]{2})\b/i', '', $cleanText);
         $cleanText = preg_replace('/\b[0-9]+\s*(?:gunluk|haftalik|aylik|saatlik|periyotluk)\b/ui', '', $cleanText);
