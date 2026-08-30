@@ -676,7 +676,7 @@ PROMPT;
 
     private function normalizeTrend(string $trend, int $score): string
     {
-        $trend = strtolower(trim(str_replace('nÃ¶tr', 'notr', $trend)));
+        $trend = strtolower(trim(str_replace('nÃƒÂ¶tr', 'notr', $trend)));
 
         if (in_array($trend, [AiSymbolReport::TREND_NEGATIVE, AiSymbolReport::TREND_NEUTRAL, AiSymbolReport::TREND_POSITIVE], true)) {
             return $trend;
@@ -714,7 +714,7 @@ PROMPT;
 
     private function normalizeConfidence(string $confidence): string
     {
-        $confidence = strtolower(trim(str_replace(['dÃ¼ÅŸÃ¼k', 'yÃ¼ksek'], ['dusuk', 'yuksek'], $confidence)));
+        $confidence = strtolower(trim(str_replace(['dÃƒÂ¼Ã…Å¸ÃƒÂ¼k', 'yÃƒÂ¼ksek'], ['dusuk', 'yuksek'], $confidence)));
 
         return in_array($confidence, ['dusuk', 'orta', 'yuksek'], true) ? $confidence : 'orta';
     }
@@ -799,7 +799,7 @@ PROMPT;
         usort($reports, fn(AiSymbolReport $a, AiSymbolReport $b): int => $b->getScore() <=> $a->getScore());
 
         if ($opportunityMode) {
-            $message = "ðŸŽ¯ <b>BAM BIST Firsat Radari</b>\n\n";
+            $message = "Ã°Å¸Å½Â¯ <b>BAM BIST Firsat Radari</b>\n\n";
             
             $aiConfirmed = array_filter(
                 $reports,
@@ -807,7 +807,7 @@ PROMPT;
             );
             usort($aiConfirmed, fn($a, $b) => $b->getScore() <=> $a->getScore());
             
-            $message .= "<b>ðŸ”¥ AI Onayli Firsatlar (Potansiyel Alim)</b>\n";
+            $message .= "<b>Ã°Å¸â€Â¥ AI Onayli Firsatlar (Potansiyel Alim)</b>\n";
             if (empty($aiConfirmed)) {
                 $message .= "Maalesef bugun yapay zeka tarafindan onaylanan guclu bir firsat bulunamadi.\n";
             } else {
@@ -827,7 +827,7 @@ PROMPT;
                 return !in_array($r, $aiConfirmed, true);
             });
             if (!empty($rejected)) {
-                $message .= "\n<b>âš ï¸ Teknik Iyi Ama AI'dan Gecemeyenler / NÃ¶trler</b>\n";
+                $message .= "\n<b>Ã¢Å¡Â Ã¯Â¸Â Teknik Iyi Ama AI'dan Gecemeyenler / NÃƒÂ¶trler</b>\n";
                 foreach ($rejected as $r) {
                     $summary = mb_strlen($r->getRiskSummary()) > 1024 
                         ? mb_substr($r->getRiskSummary(), 0, 1020) . '...' 
@@ -836,15 +836,15 @@ PROMPT;
                 }
             }
         } else {
-            $message = "ðŸ“Š <b>BAM Gun Sonu AI Raporu</b>\n\n";
+            $message = "Ã°Å¸â€œÅ  <b>BAM Gun Sonu AI Raporu</b>\n\n";
             
             $portfolioReports = array_filter($reports, fn(AiSymbolReport $r) => $r->isPortfolio());
             usort($portfolioReports, fn($a, $b) => $b->getScore() <=> $a->getScore());
             
             if (!empty($portfolioReports)) {
-                $message .= "<b>ðŸ’¼ Portfoy Durumu</b>\n";
+                $message .= "<b>Ã°Å¸â€™Â¼ Portfoy Durumu</b>\n";
                 foreach ($portfolioReports as $r) {
-                    $icon = $r->getScore() >= 70 ? 'ðŸŸ¢' : ($r->getScore() <= 40 ? 'ðŸ”´' : 'ðŸŸ¡');
+                    $icon = $r->getScore() >= 70 ? 'Ã°Å¸Å¸Â¢' : ($r->getScore() <= 40 ? 'Ã°Å¸â€Â´' : 'Ã°Å¸Å¸Â¡');
                     $message .= sprintf(
                         "%s <b>%s</b>: %d/100 - %s\n",
                         $icon, $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml($r->trendLabelText())
@@ -858,7 +858,7 @@ PROMPT;
             usort($watchlistOpportunities, fn($a, $b) => $b->getScore() <=> $a->getScore());
 
             if (!empty($watchlistOpportunities)) {
-                $message .= "<b>ðŸ‘€ Takip Listendeki Firsatlar</b>\n";
+                $message .= "<b>Ã°Å¸â€˜â‚¬ Takip Listendeki Firsatlar</b>\n";
                 foreach (array_slice($watchlistOpportunities, 0, 5) as $r) {
                     $message .= sprintf("- <b>%s</b> (%d/100) - %s\n", $this->escapeHtml($r->getSymbol()), $r->getScore(), $this->escapeHtml($r->decisionLabelText()));
                 }
@@ -867,7 +867,7 @@ PROMPT;
 
             $riskyReports = array_filter($reports, fn(AiSymbolReport $r) => $r->getScore() <= 40 || str_starts_with($r->getAnalysisStatus(), 'fallback_'));
             if (!empty($riskyReports)) {
-                $message .= "<b>ðŸš¨ Riskliler / Hatalilar</b>\n";
+                $message .= "<b>Ã°Å¸Å¡Â¨ Riskliler / Hatalilar</b>\n";
                 foreach (array_slice($riskyReports, 0, 3) as $r) {
                     $msg = str_starts_with($r->getAnalysisStatus(), 'fallback_') ? $r->getRiskSummary() : $r->decisionLabelText();
                     $message .= sprintf("- <b>%s</b>: %s\n", $this->escapeHtml($r->getSymbol()), $this->escapeHtml(mb_substr($msg, 0, 100)));
@@ -884,5 +884,289 @@ PROMPT;
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
+
+    private const PORTFOLIO_SECTOR_MAP = [
+        'GARAN' => 'Bankacılık',
+        'AKBNK' => 'Bankacılık',
+        'SKBNK' => 'Bankacılık',
+        'ENJSA' => 'Enerji',
+        'AKSEN' => 'Enerji',
+        'ENKAI' => 'İnşaat / Taahhüt'
+    ];
+
+    private function calculateSectorDistribution(array $symbols): array
+    {
+        if (empty($symbols)) return [];
+        $total = count($symbols);
+        $counts = [];
+        foreach ($symbols as $symbol) {
+            $sector = self::PORTFOLIO_SECTOR_MAP[$symbol] ?? 'Diğer';
+            $counts[$sector] = ($counts[$sector] ?? 0) + 1;
+        }
+        $distribution = [];
+        foreach ($counts as $sector => $count) {
+            $distribution[$sector] = round(($count / $total) * 100, 1) . '%';
+        }
+        arsort($distribution);
+        return $distribution;
+    }
+
+    private function buildPortfolioBatchData(array $symbols, array $historyMap): array
+    {
+        $portfolioData = [
+            'portfolio_summary' => [],
+            'symbol_reports' => []
+        ];
+
+        $since = new \DateTimeImmutable('-7 days');
+
+        foreach ($symbols as $symbol) {
+            $history = $historyMap[$symbol] ?? [];
+            $technical = $this->technicalAnalysis->analyze(is_array($history['bars'] ?? null) ? $history['bars'] : []);
+            
+            // Score inject (OpportunityScoringService will be injected later when batch is wired)
+            // $scoreResult = $this->scoring->score($technical, $history);
+            // $technical['score'] = $scoreResult['score'];
+
+            $kapNews = $this->kapNewsRepository->findRecentForSymbol($symbol, $since, 3);
+            $newsArray = [];
+            foreach ($kapNews as $news) {
+                if ($news->getAiSummary() !== null) {
+                    $newsArray[] = [
+                        'date' => $news->getPublishedAt()->format('Y-m-d'),
+                        'title' => $news->getTitle(),
+                        'aiSummary' => $news->getAiSummary(),
+                        'sentimentScore' => $news->getSentimentScore()
+                    ];
+                }
+            }
+            $technical['news'] = $newsArray;
+            
+            $portfolioData['symbol_reports'][$symbol] = $technical;
+        }
+
+        $portfolioData['portfolio_summary']['sector_distribution'] = $this->calculateSectorDistribution($symbols);
+
+        return $portfolioData;
+    }
+
+    private function buildBatchPrompt(array $portfolioBatchData): string
+    {
+        return <<<EOT
+Sen BAM Terminal'in profesyonel BIST portföy analiz motorusun.
+
+YASAL ZORUNLULUK:
+- HİÇBİR ZAMAN şu kelimeleri kullanma: "al", "sat", "tut", "hedef fiyat", "yükselecek", "düşecek", "kaçırılmaz", "kesinlikle".
+- SADECE gözlemsel dil kullan.
+
+VERİ KURALLARI:
+1. Sana verilen JSON'daki verileri kullan. JSON'da olmayan hiçbir sayıyı UYDURMA.
+2. Raporun en başına 'Portföy Risk Analizi' başlığı aç.
+3. Varsa yoğunlaşma riskini (bir sektör %40'ın üzerindeyse özellikle vurgulayarak) yorumla. 
+4. Sektör yüzdelerini SADECE sana verilen 'portfolio_summary.sector_distribution' alanından al.
+5. Haberler (news): Haberleri sadece 'aiSummary' ve 'title' üzerinden yorumla. Haberin içinden, özetinden veya 'sentimentScore' alanından hiçbir yeni SAYIYI (tutar, oran, skor, yüzde) rapora ASLA YAZMA. Ayrıca title içinde geçen hiçbir sayıyı (tutar, oran vb.) rapora yazma, title'ı sadece haberin genel konusunu anlamak için oku, sayısal detayları asla aktarma. 'sentimentScore' (0.8 vb.) gibi değerleri sadece sözel (olumlu/olumsuz) olarak ifade et.
+6. Bir hissenin 'news' dizisi boşsa, o hisse için haber veya KAP duyurusu konusuna HİÇ DEĞİNME.
+7. Eğer teknik veriler (RSI, karar) ile haberin 'sentimentScore'u çelişiyorsa (Örn: Teknik şişmiş ama haber olumluysa), çelişkiyi dengeli ve nötr bir dille yansıt.
+8. Hacim (volumeRatio) değerini 'X kat' formatında yaz, yüzdeye çevirme.
+9. RSI >= 70 = decision: dikkat, RSI <= 30 = decision: izle, arası = nötr.
+
+ÇIKTI FORMATI SADECE JSON OLMALIDIR:
+{
+  "telegram_report": "Buraya markdown formatlı akıcı rapor",
+  "symbol_reports": {
+    "GARAN": {
+      "trend": "pozitif",
+      "decision": "dikkat",
+      "comment": "Teknik ve varsa haberi harmanlayan 1 cümlelik yorum"
+    }
+  }
 }
 
+PORTFÖY VERİSİ (JSON):
+EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+
+    private function buildFallbackReport(array $portfolioBatchData): array
+    {
+        $telegramReport = "⚠️ <b>AI Analiz Sunucularında yoğunluk yaşanmaktadır. Gün sonu ham verileriniz:</b>\n\n";
+        
+        $sectorDist = $portfolioBatchData['portfolio_summary']['sector_distribution'] ?? [];
+        if (!empty($sectorDist)) {
+            $telegramReport .= "📊 <b>Portföy Dağılımı:</b>\n";
+            foreach ($sectorDist as $sector => $pct) {
+                $telegramReport .= " - $sector: $pct\n";
+            }
+            $telegramReport .= "\n";
+        }
+
+        $symbolReports = [];
+        $symbolsData = $portfolioBatchData['symbol_reports'] ?? [];
+        foreach ($symbolsData as $symbol => $data) {
+            $price = $data['lastClose'] ?? 0.0;
+            $rsi = $data['rsi14'] ?? 50.0;
+            $trend = $data['trend'] ?? 'notr';
+            
+            if ($rsi >= 70) {
+                $rsiLabel = 'Aşırı Alım';
+                $decision = 'dikkat';
+            } elseif ($rsi <= 30) {
+                $rsiLabel = 'Aşırı Satım';
+                $decision = 'izle';
+            } else {
+                $rsiLabel = 'Nötr';
+                $decision = 'nötr';
+            }
+
+            $telegramReport .= sprintf(
+                "▪ <b>%s</b>: Fiyat %.2f | RSI %.1f (%s) | Trend: %s\n",
+                $symbol, $price, $rsi, $rsiLabel, ucfirst($trend)
+            );
+
+            $symbolReports[$symbol] = [
+                'score' => $data['score'] ?? 50,
+                'trend' => $trend,
+                'decision' => $decision,
+                'comment' => sprintf('Otomatik sistem raporu. RSI: %.1f, Trend: %s.', $rsi, ucfirst($trend))
+            ];
+        }
+
+        $telegramReport .= "\n<i>Yatırım tavsiyesi değildir, teknik verilere dayalı otonom sistem raporudur.</i>";
+
+        return [
+            'telegram_report' => $telegramReport,
+            'symbol_reports' => $symbolReports
+        ];
+    }
+
+    private function isCloseEnough(float $value, array $allowedList, float $margin): bool
+    {
+        foreach ($allowedList as $allowed) {
+            if (abs($value - $allowed) <= $margin) return true;
+        }
+        return false;
+    }
+
+    private function verifyNoHallucination(string $aiText, array $portfolioBatchData, SymfonyStyle $io): bool
+    {
+        $allowedPrices = [];
+        $allowedPercentages = [];
+        $allowedRsi = [];
+        $allowedMacd = [];
+        $allowedVolume = [];
+
+        $symbolReports = $portfolioBatchData['symbol_reports'] ?? [];
+        foreach ($symbolReports as $symbol => $data) {
+            if (isset($data['lastClose'])) $allowedPrices[] = (float) $data['lastClose'];
+            if (isset($data['support20'])) $allowedPrices[] = (float) $data['support20'];
+            if (isset($data['resistance20'])) $allowedPrices[] = (float) $data['resistance20'];
+            if (isset($data['rsi14'])) $allowedRsi[] = round((float) $data['rsi14']);
+            if (isset($data['macd']['value'])) $allowedMacd[] = (float) $data['macd']['value'];
+            if (isset($data['macd']['signal'])) $allowedMacd[] = (float) $data['macd']['signal'];
+            if (isset($data['volumeRatio'])) $allowedVolume[] = (float) $data['volumeRatio'];
+            
+            if (isset($data['returns'])) {
+                foreach ($data['returns'] as $pct) {
+                    $allowedPercentages[] = round((float) $pct, 1);
+                }
+            }
+        }
+
+        $sectorDistribution = $portfolioBatchData['portfolio_summary']['sector_distribution'] ?? [];
+        foreach ($sectorDistribution as $sector => $pctStr) {
+            $val = (float) str_replace('%', '', $pctStr);
+            $allowedPercentages[] = round($val, 1);
+        }
+
+        preg_match_all('/(?:%|-)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*%/u', $aiText, $pctMatches);
+        $foundPercentages = array_filter(array_merge($pctMatches[1], $pctMatches[2]));
+        foreach ($foundPercentages as $pct) {
+            if (!$this->isCloseEnough((float) $pct, $allowedPercentages, 1.5)) {
+                $io->error("Halüsinasyon tespiti! Uydurulan yüzde: " . $pct);
+                return false; 
+            }
+        }
+
+        preg_match_all('/RSI[^0-9]*([0-9]+(?:\.[0-9]+)?)/i', $aiText, $rsiMatches);
+        foreach ($rsiMatches[1] as $rsi) {
+            if (!$this->isCloseEnough((float) $rsi, $allowedRsi, 1.0)) {
+                $io->error("Halüsinasyon tespiti! Uydurulan RSI: " . $rsi);
+                return false; 
+            }
+        }
+
+        preg_match_all('/MACD[^0-9-]*(-?[0-9]+(?:\.[0-9]+)?)/i', $aiText, $macdMatches);
+        foreach ($macdMatches[1] as $macd) {
+            if (!$this->isCloseEnough((float) $macd, $allowedMacd, 0.1)) return false; 
+        }
+
+        preg_match_all('/([0-9]+(?:\.[0-9]+)?)\s*kat/ui', $aiText, $volMatches);
+        foreach ($volMatches[1] as $vol) {
+            if (!$this->isCloseEnough((float) $vol, $allowedVolume, 0.1)) return false; 
+        }
+
+        $cleanText = preg_replace('/%[0-9.]+|[0-9.]+%/i', '', $aiText);
+        $cleanText = preg_replace('/RSI[^0-9]*[0-9.]+/i', '', $cleanText);
+        $cleanText = preg_replace('/MACD[^0-9-]*-[0-9.]+/i', '', $cleanText);
+        $cleanText = preg_replace('/[0-9.]+\s*kat/ui', '', $cleanText);
+        
+        $cleanText = preg_replace('/\b(?:202[0-9]|19[0-9]{2})\b/i', '', $cleanText);
+        $cleanText = preg_replace('/\b[0-9]+\s*(?:günlük|haftalık|aylık|saatlik|periyotluk)\b/ui', '', $cleanText);
+        $cleanText = preg_replace('/\b[0-9]+\s*(?:Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)\b/ui', '', $cleanText);
+        $cleanText = preg_replace('/\b(?:100|30|50)\b/i', '', $cleanText);
+
+        $allAllowed = array_merge($allowedPrices, $allowedRsi, $allowedMacd, $allowedVolume, $allowedPercentages);
+        preg_match_all('/([0-9]{2,}(?:\.[0-9]+)?)/u', $cleanText, $priceMatches);
+        
+        foreach ($priceMatches[1] as $price) {
+            if ((float)$price > 10) {
+                if (!$this->isCloseEnough((float) $price, $allAllowed, 0.5)) {
+                    $io->error("Halüsinasyon tespiti! Uydurulan sayı/fiyat: " . $price);
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private function askPortfolioBatchAi(array $symbols, array $historyMap, SymfonyStyle $io): array
+    {
+        $portfolioBatchData = $this->buildPortfolioBatchData($symbols, $historyMap);
+        $prompt = $this->buildBatchPrompt($portfolioBatchData);
+
+        try {
+            $reportText = $this->aiProvider->askJson($prompt);
+            $parsedData = json_decode($reportText, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsedData)) {
+                $this->logger->warning('Yapay Zeka bozuk JSON döndürdü, 2. şans veriliyor.');
+                $retryPrompt = $prompt . "\n\nUYARI: Önceki yanıtın bozuktu. SADECE geçerli JSON döndür.";
+                $reportText = $this->aiProvider->askJson($retryPrompt);
+                $parsedData = json_decode($reportText, true);
+
+                if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsedData)) {
+                    $this->logger->error('Yapay Zeka 2. denemede de JSON bozdu. Fallback tetiklendi.');
+                    return $this->buildFallbackReport($portfolioBatchData);
+                }
+            }
+
+            if (!$this->verifyNoHallucination($reportText, $portfolioBatchData, $io)) {
+                $this->logger->warning('Yapay Zeka Halüsinasyon yaptı, 2. şans veriliyor.');
+                $retryPrompt = $prompt . "\n\nUYARI: Yanıtında verilerde olmayan sayılar uydurdun! SADECE JSON'daki rakamları kullan. Tekrar yaz.";
+                $reportText = $this->aiProvider->askJson($retryPrompt);
+                $parsedData = json_decode($reportText, true);
+
+                if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsedData) || !$this->verifyNoHallucination($reportText, $portfolioBatchData, $io)) {
+                    $this->logger->error('Yapay Zeka 2. denemede de sayı uydurdu veya JSON bozdu. Fallback tetiklendi.');
+                    return $this->buildFallbackReport($portfolioBatchData);
+                }
+            }
+
+            return $parsedData;
+
+        } catch (\Throwable $e) {
+            $this->logger->error('LLM API Hatası: ' . $e->getMessage());
+            return $this->buildFallbackReport($portfolioBatchData);
+        }
+    }
+}
