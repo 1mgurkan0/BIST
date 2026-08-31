@@ -454,7 +454,7 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
             $allowedPercentages[] = round($val, 1);
         }
 
-        preg_match_all('/(?:%|-)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*%/u', $aiText, $pctMatches);
+        preg_match_all('/(-?[0-9]+(?:\.[0-9]+)?)\s*%|%\s*(-?[0-9]+(?:\.[0-9]+)?)/u', $aiText, $pctMatches);
         $foundPercentages = array_filter(array_merge($pctMatches[1], $pctMatches[2]));
         foreach ($foundPercentages as $pct) {
             if (!$this->isCloseEnough((float) $pct, $allowedPercentages, 1.5)) {
@@ -487,7 +487,10 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
         $cleanText = preg_replace('/\b(?:202[0-9]|19[0-9]{2})\b/i', '', $cleanText);
         $cleanText = preg_replace('/\b[0-9]+\s*(?:gunluk|haftalik|aylik|saatlik|periyotluk)\b/ui', '', $cleanText);
         $cleanText = preg_replace('/\b[0-9]+\s*(?:Ocak|Subat|Mart|Nisan|Mayis|Haziran|Temmuz|Agustos|Eylul|Ekim|Kasim|Aralik)\b/ui', '', $cleanText);
-        $cleanText = preg_replace('/\b(?:100|30|50)\b/i', '', $cleanText);
+                $cleanText = preg_replace('/\b(?:100|30|50)\b/i', '', $cleanText);
+        // Ozel olarak firsat modundaki skorlari (ornegin 78/100, skorum 78, vb.) temizle
+        $cleanText = preg_replace('/(?:skor|score)[^\d]+([0-9]+(?:\.[0-9]+)?)/ui', '', $cleanText);
+        $cleanText = preg_replace('/([0-9]+(?:\.[0-9]+)?)\s*\/\s*100/ui', '', $cleanText);
 
         $allAllowed = array_merge($allowedPrices, $allowedRsi, $allowedMacd, $allowedVolume, $allowedPercentages);
         preg_match_all('/([0-9]{2,}(?:\.[0-9]+)?)/u', $cleanText, $priceMatches);
@@ -511,13 +514,13 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
             $parsedData = json_decode($reportText, true);
 
             if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsedData)) {
-                $this->logger->warning('Yapay Zeka bozuk JSON dondurdu, 2. sans veriliyor.');
+                $this->logger->warning('Yapay Zeka bozuk JSON dondurdu: ' . $reportText . ' | 2. sans veriliyor.');
                 $retryPrompt = $prompt . "\n\nUYARI: Onceki yanitin bozuktu. SADECE gecerli JSON dondur.";
                 $reportText = $this->aiProvider->askJson($retryPrompt);
                 $parsedData = json_decode($reportText, true);
 
                 if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsedData)) {
-                    $this->logger->error('Yapay Zeka 2. denemede de JSON bozdu. Fallback tetiklendi.');
+                    $this->logger->error('Yapay Zeka 2. denemede de JSON bozdu: ' . $reportText . ' | Fallback tetiklendi.');
                     return $opportunityMode ? $this->buildOpportunityFallbackReport($batchData) : $this->buildFallbackReport($batchData, $opportunityMode);
                 }
             }
@@ -585,6 +588,7 @@ KURALLAR:
 5. 'trend' sadece: negatif, notr, pozitif.
 6. 'decision' sadece: takip_et, bekle, riskli.
 
+YASAL KURAL: HICBIR ACIKLAMA VEYA GIDIS YOLU (REASONING) YAZMA. CIKTIN SADECE VE SADECE { ILE BASLAYAN GECERLI BIR JSON OLMALIDIR.
 CIKTI FORMATI GECERLI JSON OLMALIDIR:
 {
   "telegram_report": "Buraya markdown formatinda akici ve gruplandirilmis firsat raporu",
@@ -643,5 +647,27 @@ EOT . "\n" . json_encode($batchData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
         $parsedData['telegram_report'] = $md;
 
         return $parsedData;
+    }
+
+    private function parseJsonSafely(string $text): ?array
+    {
+        $parsed = json_decode($text, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($parsed)) {
+            return $parsed;
+        }
+
+        // Kurtarma Denemesi: Ilk { ile son } arasini al
+        $start = strpos($text, '{');
+        $end = strrpos($text, '}');
+        if ($start !== false && $end !== false && $end > $start) {
+            $jsonStr = substr($text, $start, $end - $start + 1);
+            $parsed = json_decode($jsonStr, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($parsed)) {
+                $this->logger->info('JSON parser: Bozuk metin icinden JSON basariyla kurtarildi.');
+                return $parsed;
+            }
+        }
+
+        return null;
     }
 }
