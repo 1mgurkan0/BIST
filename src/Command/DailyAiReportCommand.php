@@ -176,8 +176,15 @@ class DailyAiReportCommand extends Command
         $io->title('Batch AI Raporlamasi Basliyor');
         $io->text(sprintf('%d sembol tek cagrida analiz edilecek...', count($symbols)));
 
-        $portfolioBatchData = $this->buildPortfolioBatchData($symbols, $historyMap);
-        $parsedData = $this->askPortfolioBatchAi($portfolioBatchData, $io);
+        $batchData = $opportunityMode 
+            ? $this->buildOpportunityBatchData($symbols, $io) 
+            : $this->buildPortfolioBatchData($symbols, $historyMap);
+            
+        $prompt = $opportunityMode
+            ? $this->buildOpportunityBatchPrompt($batchData)
+            : $this->buildBatchPrompt($batchData);
+
+        $parsedData = $this->askBatchAi($prompt, $batchData, $io, $opportunityMode);
 
         $today = new \DateTimeImmutable('today');
 
@@ -188,7 +195,7 @@ class DailyAiReportCommand extends Command
             }
 
             $reportData = $parsedData['symbol_reports'][$symbol];
-            $rawTechnical = $portfolioBatchData['symbol_reports'][$symbol] ?? [];
+            $rawTechnical = $batchData['symbol_reports'][$symbol] ?? [];
 
             $report = (new AiSymbolReport())
                 ->setSymbol($symbol)
@@ -365,7 +372,7 @@ PORTFÖY VERİSİ (JSON):
 EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
-    private function buildFallbackReport(array $portfolioBatchData): array
+    private function buildFallbackReport(array $portfolioBatchData, bool $opportunityMode = false): array
     {
         $telegramReport = "⚠️ <b>AI Analiz Sunucularinda yogunluk yasanmaktadir. Gun sonu ham verileriniz:</b>\n\n";
         
@@ -496,9 +503,9 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
         return true;
     }
 
-    private function askPortfolioBatchAi(array $portfolioBatchData, SymfonyStyle $io): array
+    private function askBatchAi(string $prompt, array $batchData, SymfonyStyle $io, bool $opportunityMode): array
     {
-        $prompt = $this->buildBatchPrompt($portfolioBatchData);
+        
         try {
             $reportText = $this->aiProvider->askJson($prompt);
             $parsedData = json_decode($reportText, true);
@@ -511,25 +518,130 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
 
                 if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsedData)) {
                     $this->logger->error('Yapay Zeka 2. denemede de JSON bozdu. Fallback tetiklendi.');
-                    return $this->buildFallbackReport($portfolioBatchData);
+                    return $opportunityMode ? $this->buildOpportunityFallbackReport($batchData) : $this->buildFallbackReport($batchData, $opportunityMode);
                 }
             }
 
-            if (!$this->verifyNoHallucination($reportText, $portfolioBatchData, $io)) {
+            if (!$this->verifyNoHallucination($reportText, $batchData, $io)) {
                 $this->logger->warning('Yapay Zeka Halusinasyon yapti, 2. sans veriliyor.');
                 $retryPrompt = $prompt . "\n\nUYARI: Yanitinda verilerde olmayan sayilar uydurdun! SADECE JSON'daki rakamlari kullan. Tekrar yaz.";
                 $reportText = $this->aiProvider->askJson($retryPrompt);
                 $parsedData = json_decode($reportText, true);
 
-                if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsedData) || !$this->verifyNoHallucination($reportText, $portfolioBatchData, $io)) {
+                if (json_last_error() !== JSON_ERROR_NONE || !is_array($parsedData) || !$this->verifyNoHallucination($reportText, $batchData, $io)) {
                     $this->logger->error('Yapay Zeka 2. denemede de sayi uydurdu veya JSON bozdu. Fallback tetiklendi.');
-                    return $this->buildFallbackReport($portfolioBatchData);
+                    return $opportunityMode ? $this->buildOpportunityFallbackReport($batchData) : $this->buildFallbackReport($batchData, $opportunityMode);
                 }
             }
             return $parsedData;
         } catch (\Throwable $e) {
             $this->logger->error('LLM API Hatasi: ' . $e->getMessage());
-            return $this->buildFallbackReport($portfolioBatchData);
+            return $opportunityMode ? $this->buildOpportunityFallbackReport($batchData) : $this->buildFallbackReport($batchData, $opportunityMode);
         }
+    }
+
+    private function buildOpportunityBatchData(array $symbols, SymfonyStyle $io): array
+    {
+        $data = ['symbol_reports' => []];
+        $historyMap = $this->historyService->fetchBatch($symbols);
+        foreach ($symbols as $symbol) {
+            try {
+                $history = $historyMap[$symbol] ?? null;
+                if ($history === null || ($history['status'] ?? '') !== 'ok') continue;
+                
+                $bars = $history['bars'] ?? [];
+                $technical = $this->technicalAnalysis->analyze(is_array($bars) ? $bars : []);
+                
+                $candidate = $this->opportunityRepository->findOneBy(['symbol' => $symbol], ['createdAt' => 'DESC']);
+                
+                $data['symbol_reports'][$symbol] = [
+                    'price' => (is_array($bars) && !empty($bars)) ? end($bars)['close'] : 0,
+                    'technical' => $technical,
+                    'systemScore' => $candidate ? $candidate->getScore() : 50,
+                    'systemReasons' => $candidate && $candidate->getReasons() ? implode(', ', $candidate->getReasons()) : 'Veri yok'
+                ];
+            } catch (\Throwable $e) {
+                $this->logger->error(sprintf("Firsat Batch hazirlama hatasi %s: %s", $symbol, $e->getMessage()));
+            }
+        }
+        return $data;
+    }
+
+    private function buildOpportunityBatchPrompt(array $batchData): string
+    {
+        return <<<EOT
+Sen BIST odakli, 'dipten donus' stratejisi uygulayan kisisel bir karar destek analistisin. 
+Amacin fiyati zaten ucmus/asiri isinmis hisseleri DEGIL; duzeltme yasamis, ana desteklere (SMA50/SMA200) yaklasmis ve YENI toparlanma sinyali veren hisseleri erken tespit etmektir.
+Sana verilen JSON'da algoritmamizdan yuksek skor almis FIRSAT ADAYI hisselerin listesi bulunmaktadir.
+
+YASAL ZORUNLULUK:
+- "al", "sat", "tut", "hedef fiyat", "yükselecek", "düşecek", "kaçırılmaz", "kesinlikle" kelimelerini KULLANMA.
+
+KURALLAR:
+1. SADECE JSON'da verilen sembolleri ve verileri kullan. Olmayan sayi uydurma.
+2. Raporun en başına 'BAM BIST Fırsat Radarı' başlığı aç.
+3. Bir hisse RSI > 65 ve/veya SMA20'nin %7+ uzerindeyse: bu hisseyi 'gec kalinmis/riskli' say ve AI skorunu 55'in altinda tut. En yuksek skorlari (70+) sadece SU AN destekten YENI donmeye baslayanlara ver.
+4. Sistem skoru (systemScore) ve gerekcelerini (systemReasons) baz alarak kendi 0-100 arasi AI skorunu olustur (bunu yorumda belirt).
+5. 'trend' sadece: negatif, notr, pozitif.
+6. 'decision' sadece: takip_et, bekle, riskli.
+
+CIKTI FORMATI GECERLI JSON OLMALIDIR:
+{
+  "telegram_report": "Buraya markdown formatinda akici ve gruplandirilmis firsat raporu",
+  "symbol_reports": {
+    "GARAN": {
+      "trend": "pozitif",
+      "decision": "takip_et",
+      "comment": "Sistem skoru 80 iken benim skorum 75 cunku..."
+    }
+  }
+}
+
+TELEGRAM RAPORU FORMATI (telegram_report alanina YAZ):
+🎯 BAM BIST Firsat Radari
+
+🔥 AI Onayli Firsatlar (Potansiyel Alim - AI Skoru > 65)
+1. SEMBOL - AI_SKORU/100 (Sistem Skoru: X)
+   [Buraya hisse yorumu (comment'in aynisi veya detaylisi)]
+   
+⚠️ Teknik Iyi Ama AI'dan Gecemeyenler / Notrler
+- SEMBOL (AI_SKORU/100): Sistem skoru X iken benim skorum Y cunku... [Yorum]
+
+VERI (JSON):
+EOT . "\n" . json_encode($batchData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+
+    private function buildOpportunityFallbackReport(array $batchData): array
+    {
+        $md = "🎯 <b>BAM BIST Firsat Radari (Sistem Tarafindan Uretildi)</b>\n\n";
+        $md .= "⚠️ <i>Yapay Zeka sunucularina ulasilamadi, asagidaki veriler teknik tarama sonuclaridir.</i>\n\n";
+
+        $symbolsData = $batchData['symbol_reports'] ?? [];
+        
+        $parsedData = [
+            'telegram_report' => '',
+            'symbol_reports' => []
+        ];
+
+        foreach ($symbolsData as $symbol => $data) {
+            $score = $data['systemScore'] ?? 50;
+            $reasons = $data['systemReasons'] ?? 'Veri yok.';
+            
+            $md .= "▪ <b>{$symbol}</b> - Skor: {$score}/100\n";
+            $md .= "  <i>{$reasons}</i>\n\n";
+
+            $parsedData['symbol_reports'][$symbol] = [
+                'trend' => 'notr',
+                'decision' => 'notr',
+                'comment' => $reasons
+            ];
+            
+            $this->logger->info("$symbol firsat fallback raporlandi: notr / notr");
+        }
+
+        $md .= "\n<i>Yatirim tavsiyesi degildir, teknik verilere dayali otonom sistem raporudur.</i>\n";
+        $parsedData['telegram_report'] = $md;
+
+        return $parsedData;
     }
 }
