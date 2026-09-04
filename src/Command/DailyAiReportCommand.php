@@ -80,7 +80,8 @@ class DailyAiReportCommand extends Command
             (bool) $input->getOption('opportunities'),
             max(1, (int) $input->getOption('opportunity-limit'))
         );
-        $lock = $this->lockFactory->createLock('daily_ai_report_' . md5(implode(',', $symbols)), 3600.0, false);
+        $modeKey = $input->getOption('opportunities') ? 'opportunity' : 'portfolio';
+        $lock = $this->lockFactory->createLock('daily_ai_report_' . $modeKey, 3600.0, false);
         if (!$lock->acquire()) {
             (new SymfonyStyle($input, $output))->error('Baska bir gun sonu AI raporu halen calisiyor.');
             return Command::FAILURE;
@@ -173,18 +174,52 @@ class DailyAiReportCommand extends Command
         }
         $historyMap = $this->historyService->fetchBatch($symbols);
 
-        $io->title('Batch AI Raporlamasi Basliyor');
-        $io->text(sprintf('%d sembol tek cagrida analiz edilecek...', count($symbols)));
+                $io->title('Batch AI Raporlamasi Basliyor');
+        $chunkSize = $opportunityMode ? 2 : 10;
+        $symbolChunks = array_chunk($symbols, $chunkSize);
+        $io->text(sprintf('%d sembol, %d grup halinde analiz edilecek...', count($symbols), count($symbolChunks)));
 
-        $batchData = $opportunityMode 
-            ? $this->buildOpportunityBatchData($symbols, $io) 
-            : $this->buildPortfolioBatchData($symbols, $historyMap);
+        $parsedData = ['telegram_report' => '', 'symbol_reports' => [], 'portfolio_comment' => ''];
+        
+        // BatchData'yi cumulative tutmamiz lazim ki asagida veritabanina yazarken okuyabilelim!
+        $cumulativeBatchData = ['symbol_reports' => []];
+
+        foreach ($symbolChunks as $index => $chunk) {
+            $io->text(sprintf('Grup %d/%d isleniyor...', $index + 1, count($symbolChunks)));
+            $batchData = $opportunityMode 
+                ? $this->buildOpportunityBatchData($chunk, $io) 
+                : $this->buildPortfolioBatchData($chunk, $historyMap);
+                
+            foreach ($batchData['symbol_reports'] as $s => $rd) {
+                $cumulativeBatchData['symbol_reports'][$s] = $rd;
+            }
+                
+            $prompt = $opportunityMode
+                ? $this->buildOpportunityBatchPrompt($batchData)
+                : $this->buildBatchPrompt($batchData);
+
+            $chunkParsed = $this->askBatchAi($prompt, $batchData, $io, $opportunityMode);
             
-        $prompt = $opportunityMode
-            ? $this->buildOpportunityBatchPrompt($batchData)
-            : $this->buildBatchPrompt($batchData);
-
-        $parsedData = $this->askBatchAi($prompt, $batchData, $io, $opportunityMode);
+            // Chunk sonuclarini birlestir
+            if (isset($chunkParsed['telegram_report'])) {
+                $parsedData['telegram_report'] .= $chunkParsed['telegram_report'] . "\n\n";
+            }
+            if (isset($chunkParsed['portfolio_comment'])) {
+                $parsedData['portfolio_comment'] .= ($parsedData['portfolio_comment'] ? "\n\n" : "") . $chunkParsed['portfolio_comment'];
+            }
+            if (isset($chunkParsed['symbol_reports'])) {
+                foreach ($chunkParsed['symbol_reports'] as $sym => $rep) {
+                    $parsedData['symbol_reports'][$sym] = $rep;
+                }
+            }
+            
+            // rate limit beklemesi
+            if ($index < count($symbolChunks) - 1) {
+                $delay = (int) $input->getOption('delay');
+                if ($delay > 0) sleep($delay);
+            }
+        }
+        $batchData = $cumulativeBatchData;
 
         $today = new \DateTimeImmutable('today');
 
@@ -194,19 +229,23 @@ class DailyAiReportCommand extends Command
                 continue;
             }
 
-            $reportData = $parsedData['symbol_reports'][$symbol];
+                        $reportData = $parsedData['symbol_reports'][$symbol];
             $rawTechnical = $batchData['symbol_reports'][$symbol] ?? [];
+
+            $actualTechnical = $opportunityMode ? ($rawTechnical['technical'] ?? []) : $rawTechnical;
+            $sysScore = $opportunityMode ? ($rawTechnical['systemScore'] ?? 50) : ($rawTechnical['score'] ?? 50);
+            $finalScore = (int) ($reportData['ai_score'] ?? $sysScore);
 
             $report = (new AiSymbolReport())
                 ->setSymbol($symbol)
                 ->setReportDate($today)
-                ->setScore((int) ($rawTechnical['score'] ?? 50))
+                ->setScore($finalScore)
                 ->setTrendLabel((string) ($reportData['trend'] ?? 'notr'))
                 ->setDecisionLabel((string) ($reportData['decision'] ?? 'notr'))
                 ->setDailyComment((string) ($reportData['comment'] ?? ''))
                 ->setAnalysisStatus(AiSymbolReport::ANALYSIS_SUCCESS)
                 ->setReportScope($reportScope)
-                ->setPrice(isset($rawTechnical['lastClose']) ? (float)$rawTechnical['lastClose'] : null)
+                ->setPrice(isset($actualTechnical['lastClose']) ? (float)$actualTechnical['lastClose'] : null)
                 ->setIsPortfolio(isset($portfolioSymbols[$symbol]))
                 ->setIsWatchlist(isset($watchlistSymbols[$symbol]));
             
@@ -223,8 +262,8 @@ class DailyAiReportCommand extends Command
             try {
                 $historyRecord->setDecision($reportData['decision'] ?? 'notr');
                 $historyRecord->setTrend($reportData['trend'] ?? 'notr');
-                $historyRecord->setPrice($rawTechnical['lastClose'] ?? 0);
-                $historyRecord->setRsi($rawTechnical['rsi14'] ?? 0);
+                $historyRecord->setPrice($actualTechnical['lastClose'] ?? 0);
+                $historyRecord->setRsi($actualTechnical['rsi14'] ?? 0);
             } catch (\Throwable $e) {
                 $this->logger->error("Gecmis kaydi yazilirken '$symbol' icin hata: " . $e->getMessage());
             }
@@ -408,7 +447,8 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
                 $symbol, $price, $rsi, $rsiLabel, ucfirst($trend)
             );
 
-            $symbolReports[$symbol] = [
+                        $symbolReports[$symbol] = [
+                'ai_score' => $data['score'] ?? 50,
                 'score' => $data['score'] ?? 50,
                 'trend' => $trend,
                 'decision' => $decision,
@@ -432,6 +472,7 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
 
     private function verifyNoHallucination(string $aiText, array $portfolioBatchData, SymfonyStyle $io): bool
     {
+        $allNumbersInSource = $this->collectAllNumbers($portfolioBatchData);
         $allowedPrices = []; $allowedPercentages = []; $allowedRsi = []; $allowedMacd = []; $allowedVolume = [];
         $symbolReports = $portfolioBatchData['symbol_reports'] ?? [];
         foreach ($symbolReports as $symbol => $data) {
@@ -495,14 +536,28 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
         $allAllowed = array_merge($allowedPrices, $allowedRsi, $allowedMacd, $allowedVolume, $allowedPercentages);
         preg_match_all('/([0-9]{2,}(?:\.[0-9]+)?)/u', $cleanText, $priceMatches);
         
-        foreach ($priceMatches[1] as $price) {
-            if ((float)$price > 10) {
-                if (!$this->isCloseEnough((float) $price, $allAllowed, 0.5)) {
-                    $io->error("Halusinasyon tespiti! Uydurulan sayi/fiyat: " . $price);
-                    return false;
+                foreach ($priceMatches[1] as $price) {
+            $p = (float) str_replace(",", ".", $price);
+            if (in_array(round($p), [14, 20, 50, 100, 200, 40])) continue;
+            
+            // 1-10 arasi KUSURATSIZ sayilar (1, 2, 3...) metin icinde adet/sira bildirdigi icin atla.
+            // Ama kusuratli fiyatlar (orn. 5.50) kontrol edilsin.
+            if ($p == round($p) && $p <= 10) continue;
+
+            if (!$this->isCloseEnough($p, $allAllowed, 2.0)) {
+                if ($this->isCloseEnough($p, $allNumbersInSource ?? [], 2.0)) continue; // GUVENLIK AGI (Recursive)
+                $io->error("Halusinasyon tespiti! Uydurulan sayi/fiyat: " . $price);
+                $pos = strpos($aiText, (string)$price);
+                if ($pos !== false) {
+                    $context = substr($aiText, max(0, $pos - 30), 60);
+                    $io->warning("Baglam (Context): ..." . str_replace("\n", " ", $context) . "...");
+                } else {
+                    $io->warning("Baglam (Context): Bulunamadi (Bicim farkliligi olabilir).");
                 }
+                return false; 
             }
         }
+
         return true;
     }
 
@@ -669,5 +724,21 @@ EOT . "\n" . json_encode($batchData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
         }
 
         return null;
+    }
+
+    private function collectAllNumbers(array $data): array
+    {
+        $numbers = [];
+        array_walk_recursive($data, function($item) use (&$numbers) {
+            if (is_numeric($item)) {
+                $numbers[] = (float) $item;
+            } elseif (is_string($item)) {
+                preg_match_all('/-?[0-9]+(?:\.[0-9]+)?/', $item, $matches);
+                foreach ($matches[0] as $match) {
+                    $numbers[] = (float) $match;
+                }
+            }
+        });
+        return array_unique($numbers);
     }
 }

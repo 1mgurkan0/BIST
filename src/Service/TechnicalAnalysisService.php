@@ -93,6 +93,17 @@ class TechnicalAnalysisService
                 '50_slope' => $sma50 !== null && $sma50_prev !== null ? $this->round((($sma50 / $sma50_prev) - 1) * 100) : 0,
                 '200_slope' => $sma200 !== null && $sma200_prev !== null ? $this->round((($sma200 / $sma200_prev) - 1) * 100) : 0,
             ],
+            'distances' => [
+                'distanceToSma20' => $sma20 ? $this->round((($lastClose - $sma20) / $sma20) * 100) : null,
+                'distanceToSma50' => $sma50 ? $this->round((($lastClose - $sma50) / $sma50) * 100) : null,
+                'distanceToSma200' => $sma200 ? $this->round((($lastClose - $sma200) / $sma200) * 100) : null,
+                'distanceToSupport20' => $support20 ? $this->round((($lastClose - $support20) / $support20) * 100) : null,
+                'distanceToResistance20' => $resistance20 ? $this->round((($lastClose - $resistance20) / $resistance20) * 100) : null,
+                'distanceToSupport60' => $support60 ? $this->round((($lastClose - $support60) / $support60) * 100) : null,
+                'distanceToResistance60' => $resistance60 ? $this->round((($lastClose - $resistance60) / $resistance60) * 100) : null,
+                'distanceToHigh52' => $high52 ? $this->round((($lastClose - $high52) / $high52) * 100) : null,
+                'distanceToLow52' => $low52 ? $this->round((($lastClose - $low52) / $low52) * 100) : null,
+            ],
             'rsi14' => $this->round($rsi14),
             'rsi14_slope' => $this->round($rsi14_slope),
             'macd' => [
@@ -110,8 +121,6 @@ class TechnicalAnalysisService
                 'resistance60' => $this->round($resistance60),
                 'low52w' => $this->round($low52),
                 'high52w' => $this->round($high52),
-                'distanceToHigh52w' => $high52 && $high52 > 0 ? $this->round((($lastClose / $high52) - 1) * 100) : null,
-                'distanceToLow52w' => $low52 && $low52 > 0 ? $this->round((($lastClose / $low52) - 1) * 100) : null,
             ],
         ];
     }

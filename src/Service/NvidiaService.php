@@ -8,7 +8,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class NvidiaService implements AiProviderInterface
 {
-    private const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+    private const ENDPOINT = 'https://integrate.api.nvidia.com/v1/chat/completions';
     private const MAX_ATTEMPTS = 3;
     private const TRANSIENT_STATUS_CODES = [429, 500, 502, 503, 504];
     private const DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
@@ -38,7 +38,7 @@ class NvidiaService implements AiProviderInterface
         }
 
         $payload = [
-            'model' => $this->model,
+            'model' => $this->models[$this->currentModelIndex],
             'messages' => [
                 ['role' => 'user', 'content' => $prompt]
             ],
@@ -61,7 +61,7 @@ class NvidiaService implements AiProviderInterface
                         'X-Title' => 'BAM Terminal',
                     ],
                     'json' => $payload,
-                    'timeout' => 45.0,
+                    'timeout' => 150.0,
                 ]);
 
                 $statusCode = $response->getStatusCode();
