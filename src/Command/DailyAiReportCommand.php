@@ -200,15 +200,11 @@ class DailyAiReportCommand extends Command
 
             $chunkParsed = $this->askBatchAi($prompt, $batchData, $io, $opportunityMode);
             
-            // Chunk sonuclarini birlestir
-            if (isset($chunkParsed['telegram_report'])) {
-                $parsedData['telegram_report'] .= $chunkParsed['telegram_report'] . "\n\n";
-            }
-            if (isset($chunkParsed['portfolio_comment'])) {
-                $parsedData['portfolio_comment'] .= ($parsedData['portfolio_comment'] ? "\n\n" : "") . $chunkParsed['portfolio_comment'];
-            }
+                                    // SADECE symbol_reports topla
             if (isset($chunkParsed['symbol_reports'])) {
                 foreach ($chunkParsed['symbol_reports'] as $sym => $rep) {
+                    // PHP'deki teknik veriyi AI json'ina monte et
+                    $rep['systemReasons'] = $batchData['symbol_reports'][$sym]['systemReasons'] ?? '';
                     $parsedData['symbol_reports'][$sym] = $rep;
                 }
             }
@@ -276,12 +272,28 @@ class DailyAiReportCommand extends Command
             $io->success("Veritabani kayitlari tamamlandi.");
         }
 
-        if ($sendTelegram && isset($parsedData['telegram_report'])) {
-            try {
-                $this->telegram->sendMessage($parsedData['telegram_report']);
+                if ($opportunityMode && !empty($parsedData['symbol_reports'])) {
+            $messages = $this->buildFinalTelegramMessage($parsedData['symbol_reports']);
+                        if ($sendTelegram) {
+                foreach ($messages as $idx => $msg) {
+                    $io->section("GERCEK TELEGRAM MESAJI (Parca " . ($idx+1) . ")");
+                    $io->text($msg);
+                    try {
+                        $this->telegram->sendMessage($msg);
+                    } catch (\Throwable $e) {
+                        $io->error("Telegram gonderim hatasi: " . $e->getMessage());
+                    }
+                }
                 $io->success("Telegram raporu basariyla gonderildi.");
-            } catch (\Throwable $e) {
-                $io->error("Telegram gonderim hatasi: " . $e->getMessage());
+            } elseif ($dryRun) {
+                foreach ($messages as $idx => $msg) {
+                    $io->section("TELEGRAM RAPORU (Parca " . ($idx+1) . ")");
+                    $io->text($msg);
+                }
+            }
+        } elseif (!$opportunityMode) {
+            if ($sendTelegram && isset($parsedData['telegram_report']) && $parsedData['telegram_report']) {
+                $this->telegram->sendMessage($parsedData['telegram_report']);
             }
         } elseif ($dryRun && isset($parsedData['telegram_report'])) {
             $io->section("TELEGRAM RAPORU (DRY RUN Ozet)");
@@ -624,41 +636,89 @@ KURALLAR:
 6. 'decision' sadece: takip_et, bekle, riskli.
 
 YASAL KURAL: HICBIR ACIKLAMA VEYA GIDIS YOLU (REASONING) YAZMA. CIKTIN SADECE VE SADECE { ILE BASLAYAN GECERLI BIR JSON OLMALIDIR.
-CIKTI FORMATI GECERLI JSON OLMALIDIR:
-{
-  "telegram_report": "Buraya markdown formatinda akici ve gruplandirilmis firsat raporu",
-  "symbol_reports": {
-    "GARAN": {
-      "trend": "pozitif",
-      "decision": "takip_et",
-      "comment": "Sistem skoru 80 iken benim skorum 75 cunku..."
+  CIKTI FORMATI GECERLI JSON OLMALIDIR:
+  {
+    "symbol_reports": {
+      "GARAN": {
+        "trend": "pozitif",
+        "decision": "takip_et",
+        "ai_score": 75,
+        "sade_yorum": "Fiyat guclu bir destek noktasina yaklasmis ve yukari donus belirtileri gosteriyor."
+      }
     }
   }
-}
-
-TELEGRAM RAPORU FORMATI (telegram_report alanina YAZ):
-🎯 BAM BIST Firsat Radari
-
-🔥 AI Onayli Firsatlar (Potansiyel Alim - AI Skoru > 65)
-1. SEMBOL - AI_SKORU/100 (Sistem Skoru: X)
-   [Buraya hisse yorumu (comment'in aynisi veya detaylisi)]
-   
-⚠️ Teknik Iyi Ama AI'dan Gecemeyenler / Notrler
-- SEMBOL (AI_SKORU/100): Sistem skoru X iken benim skorum Y cunku... [Yorum]
+  
+  ONEMLI NOT: "sade_yorum" alaninda ASLA RSI, SMA, MACD, % gibi teknik terimler VEYA HERHANGI BIR RAKAM kullanma. Sadece gunluk Turkce ile fiyatin ne anlama geldigini anlat.
 
 VERI (JSON):
 EOT . "\n" . json_encode($batchData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
-    private function buildOpportunityFallbackReport(array $batchData): array
+        private function buildFinalTelegramMessage(array $allResults): array
     {
-        $md = "🎯 <b>BAM BIST Firsat Radari (Sistem Tarafindan Uretildi)</b>\n\n";
-        $md .= "⚠️ <i>Yapay Zeka sunucularina ulasilamadi, asagidaki veriler teknik tarama sonuclaridir.</i>\n\n";
+        $groups = [
+            'takip_et' => [],
+            'bekle' => [],
+            'riskli' => []
+        ];
 
+        foreach ($allResults as $symbol => $data) {
+            $decision = $data['decision'] ?? 'riskli';
+            if (!isset($groups[$decision])) {
+                $decision = 'riskli';
+            }
+            $groups[$decision][$symbol] = $data;
+        }
+
+        $sortFn = function($a, $b) {
+            $scoreA = (int)($a['ai_score'] ?? 0);
+            $scoreB = (int)($b['ai_score'] ?? 0);
+            return $scoreB <=> $scoreA;
+        };
+
+        foreach ($groups as &$group) {
+            uasort($group, $sortFn);
+        }
+
+        $titles = [
+            'takip_et' => "🟢 <b>Guclu Firsat</b>\n",
+            'bekle' => "🟡 <b>Izle</b>\n",
+            'riskli' => "🔴 <b>Riskli / Kacin</b>\n"
+        ];
+
+        $messages = [];
+        $currentMessage = "🎯 <b>BAM BIST Firsat Radari</b>\n\n";
+
+        foreach (['takip_et', 'bekle', 'riskli'] as $d) {
+            if (empty($groups[$d])) continue;
+            
+            $groupText = $titles[$d];
+            foreach ($groups[$d] as $symbol => $data) {
+                $score = $data['ai_score'] ?? 50;
+                $sade = $data['sade_yorum'] ?? '';
+                $teknik = $data['systemReasons'] ?? '';
+                $groupText .= "▪ {$symbol} - Skor: {$score}/100\n   {$sade} (Teknik: {$teknik})\n\n";
+            }
+            
+            if (mb_strlen($currentMessage . $groupText) > 4000) {
+                $messages[] = $currentMessage;
+                $currentMessage = $groupText;
+            } else {
+                $currentMessage .= $groupText;
+            }
+        }
+
+        $currentMessage .= "<i>Yatirim tavsiyesi degildir.</i>";
+        $messages[] = $currentMessage;
+
+        return $messages;
+    }
+
+        private function buildOpportunityFallbackReport(array $batchData, string $failureReason = 'api_error'): array
+    {
         $symbolsData = $batchData['symbol_reports'] ?? [];
         
         $parsedData = [
-            'telegram_report' => '',
             'symbol_reports' => []
         ];
 
@@ -666,21 +726,19 @@ EOT . "\n" . json_encode($batchData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
             $score = $data['systemScore'] ?? 50;
             $reasons = $data['systemReasons'] ?? 'Veri yok.';
             
-            $md .= "▪ <b>{$symbol}</b> - Skor: {$score}/100\n";
-            $md .= "  <i>{$reasons}</i>\n\n";
-
+            $sade_yorum = "AI degerlendiremedi, teknik tarama sonucu gosteriliyor.";
+            
             $parsedData['symbol_reports'][$symbol] = [
                 'trend' => 'notr',
-                'decision' => 'notr',
-                'comment' => $reasons
+                'decision' => 'riskli',
+                'ai_score' => $score,
+                'sade_yorum' => $sade_yorum,
+                'systemReasons' => $reasons
             ];
             
-            $this->logger->info("$symbol firsat fallback raporlandi: notr / notr");
+            $this->logger->info("$symbol firsat fallback raporlandi: notr / riskli");
         }
-
-        $md .= "\n<i>Yatirim tavsiyesi degildir, teknik verilere dayali otonom sistem raporudur.</i>\n";
-        $parsedData['telegram_report'] = $md;
-
+        
         return $parsedData;
     }
 
