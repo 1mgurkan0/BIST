@@ -16,6 +16,7 @@ class OpportunityCandidate
     public const STATUS_ELIGIBLE = 'eligible';
     public const STATUS_STALE = 'stale';
     public const STATUS_MISSING = 'missing';
+    public const STATUS_INELIGIBLE = 'ineligible';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -127,7 +128,7 @@ class OpportunityCandidate
 
     public function setStatus(string $status): static
     {
-        $this->status = in_array($status, [self::STATUS_ELIGIBLE, self::STATUS_STALE, self::STATUS_MISSING], true)
+        $this->status = in_array($status, [self::STATUS_ELIGIBLE, self::STATUS_STALE, self::STATUS_MISSING, self::STATUS_INELIGIBLE], true)
             ? $status
             : self::STATUS_MISSING;
         return $this;

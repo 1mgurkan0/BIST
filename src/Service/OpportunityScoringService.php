@@ -2,6 +2,8 @@
 
 namespace App\Service;
 
+use App\Entity\OpportunityCandidate;
+
 class OpportunityScoringService
 {
     /**
@@ -75,8 +77,8 @@ class OpportunityScoringService
         } elseif (count($validSupports) === 1) {
             $score += 15;
             $p = $validSupports[0];
-            $reasons[] = sprintf('Ana destege (SMA%s) %%%.1f yakinlikta ve destek egimi %%%.1f (pozitif) - tepki potansiyeli yüksek.', 
-                $p, $distances[$p]['dist'] * 100, $distances[$p]['slope']);
+            $reasons[] = sprintf('Ana destege (SMA%s) %%%.1f yakinlikta ve destek egimi %%%.1f (%s) - tepki potansiyeli yüksek.', 
+                $p, $distances[$p]['dist'] * 100, $distances[$p]['slope'], $distances[$p]['slope'] > 0 ? 'pozitif' : 'yatay/hafif negatif ama esik icinde');
         }
 
         foreach ($invalidSupports as $period) {
@@ -124,6 +126,7 @@ class OpportunityScoringService
             $reasons[] = sprintf('RSI %.1f (esik: 30 alti) - dipte surunuyor, cok ucuz.', $rsi);
         } elseif ($rsi > 45 && $rsi <= 65) {
             $score += 5;
+            $reasons[] = sprintf('RSI %.1f (esik: 45-65 arasi) - notr bolgede, ozel bir sinyal yok.', $rsi);
         }
 
         // 4. Hacim Teyidi
@@ -166,9 +169,11 @@ class OpportunityScoringService
             $reasons[] = 'Tarihsel veri stale; AI adayligina alinmadi.';
         }
 
+        $hasBaseSetup = count($validSupports) > 0 || ($rsi >= 30 && $rsi <= 45);
+
         return [
             'score' => max(0, min(100, (int) round($score))),
-            'status' => $stale ? 'stale' : 'eligible',
+            'status' => $stale ? OpportunityCandidate::STATUS_STALE : (!$hasBaseSetup ? OpportunityCandidate::STATUS_INELIGIBLE : OpportunityCandidate::STATUS_ELIGIBLE),
             'reasons' => array_slice($reasons, 0, 8),
         ];
     }

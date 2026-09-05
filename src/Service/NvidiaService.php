@@ -11,7 +11,13 @@ class NvidiaService implements AiProviderInterface
     private const ENDPOINT = 'https://integrate.api.nvidia.com/v1/chat/completions';
     private const MAX_ATTEMPTS = 3;
     private const TRANSIENT_STATUS_CODES = [429, 500, 502, 503, 504];
-    private const DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
+    private const DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b';
+    private array $models = [
+        'nvidia/nemotron-3-super-120b-a12b',
+        'nvidia/nemotron-3-ultra-550b-a55b',
+        'moonshotai/kimi-k3'
+    ];
+    private int $currentModelIndex = 0;
 
     public function __construct(
         private readonly HttpClientInterface $client,
@@ -44,6 +50,7 @@ class NvidiaService implements AiProviderInterface
             ],
             'max_tokens' => 4096,
             'temperature' => 0.7,
+            'chat_template_kwargs' => ['enable_thinking' => false],
         ];
 
         if ($jsonMode) {
@@ -95,6 +102,7 @@ class NvidiaService implements AiProviderInterface
                     throw $e;
                 }
                 
+                $this->currentModelIndex = min(count($this->models) - 1, $this->currentModelIndex + 1);
                 $this->backoff($attempt, 500);
                 ++$attempt;
             }

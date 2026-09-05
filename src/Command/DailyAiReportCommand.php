@@ -470,55 +470,38 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
         return false;
     }
 
-    private function verifyNoHallucination(string $aiText, array $portfolioBatchData, SymfonyStyle $io): bool
+        private function verifyNoHallucination(string $aiText, array $portfolioBatchData, SymfonyStyle $io): bool
     {
         $allNumbersInSource = $this->collectAllNumbers($portfolioBatchData);
-        $allowedPrices = []; $allowedPercentages = []; $allowedRsi = []; $allowedMacd = []; $allowedVolume = [];
-        $symbolReports = $portfolioBatchData['symbol_reports'] ?? [];
-        foreach ($symbolReports as $symbol => $data) {
-            if (isset($data['lastClose'])) $allowedPrices[] = (float) $data['lastClose'];
-            if (isset($data['support20'])) $allowedPrices[] = (float) $data['support20'];
-            if (isset($data['resistance20'])) $allowedPrices[] = (float) $data['resistance20'];
-            if (isset($data['rsi14'])) $allowedRsi[] = round((float) $data['rsi14']);
-            if (isset($data['macd']['value'])) $allowedMacd[] = (float) $data['macd']['value'];
-            if (isset($data['macd']['signal'])) $allowedMacd[] = (float) $data['macd']['signal'];
-            if (isset($data['volumeRatio'])) $allowedVolume[] = (float) $data['volumeRatio'];
-            if (isset($data['returns'])) foreach ($data['returns'] as $pct) $allowedPercentages[] = round((float) $pct, 1);
-            if (isset($data['previousStance']) && is_array($data['previousStance'])) {
-                if (isset($data['previousStance']['price'])) $allowedPrices[] = (float) $data['previousStance']['price'];
-                if (isset($data['previousStance']['rsi'])) $allowedRsi[] = round((float) $data['previousStance']['rsi']);
-            }
-        }
-        $sectorDistribution = $portfolioBatchData['portfolio_summary']['sector_distribution'] ?? [];
-        foreach ($sectorDistribution as $sector => $pctStr) {
-            $val = (float) str_replace('%', '', $pctStr);
-            $allowedPercentages[] = round($val, 1);
-        }
 
         preg_match_all('/(-?[0-9]+(?:\.[0-9]+)?)\s*%|%\s*(-?[0-9]+(?:\.[0-9]+)?)/u', $aiText, $pctMatches);
         $foundPercentages = array_filter(array_merge($pctMatches[1], $pctMatches[2]));
         foreach ($foundPercentages as $pct) {
-            if (!$this->isCloseEnough((float) $pct, $allowedPercentages, 1.5)) {
-                $io->error("Halusinasyon tespiti! Uydurulan yuzde: " . $pct); $io->warning("DEBUG - allowedPercentages: " . json_encode($allowedPercentages));
+            if (!$this->isCloseEnough((float) $pct, $allNumbersInSource, 1.5)) {
+                $io->error("Halusinasyon tespiti! Uydurulan yuzde: " . $pct); $io->warning("DEBUG - allowed: " . json_encode($allNumbersInSource));
                 return false; 
             }
         }
 
         preg_match_all('/RSI(?:\s*\([0-9]+\))?\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)/i', $aiText, $rsiMatches);
         foreach ($rsiMatches[1] as $rsi) {
-            if (!$this->isCloseEnough((float) $rsi, $allowedRsi, 1.0)) {
+            if (!$this->isCloseEnough((float) $rsi, $allNumbersInSource, 1.0)) {
                 $io->error("Halusinasyon tespiti! Uydurulan RSI: " . $rsi); return false; 
             }
         }
 
         preg_match_all('/MACD\s*[:\-]?\s*(?:De(?:g|ğ)er|Sinyal)?\s*(-?[0-9]+(?:\.[0-9]+)?)/i', $aiText, $macdMatches);
         foreach ($macdMatches[1] as $macd) {
-            if (!$this->isCloseEnough((float) $macd, $allowedMacd, 0.1)) return false; 
+            if (!$this->isCloseEnough((float) $macd, $allNumbersInSource, 0.1)) {
+                $io->error("Halusinasyon tespiti! Uydurulan MACD: " . $macd); return false;
+            }
         }
 
         preg_match_all('/([0-9]+(?:\.[0-9]+)?)\s*kat/ui', $aiText, $volMatches);
         foreach ($volMatches[1] as $vol) {
-            if (!$this->isCloseEnough((float) $vol, $allowedVolume, 0.1)) return false; 
+            if (!$this->isCloseEnough((float) $vol, $allNumbersInSource, 0.1)) {
+                $io->error("Halusinasyon tespiti! Uydurulan Hacim: " . $vol); return false;
+            }
         }
 
         $cleanText = preg_replace('/%[0-9.]+|[0-9.]+%/i', '', $aiText);
@@ -528,15 +511,14 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
         $cleanText = preg_replace('/\b(?:202[0-9]|19[0-9]{2})\b/i', '', $cleanText);
         $cleanText = preg_replace('/\b[0-9]+\s*(?:gunluk|haftalik|aylik|saatlik|periyotluk)\b/ui', '', $cleanText);
         $cleanText = preg_replace('/\b[0-9]+\s*(?:Ocak|Subat|Mart|Nisan|Mayis|Haziran|Temmuz|Agustos|Eylul|Ekim|Kasim|Aralik)\b/ui', '', $cleanText);
-                $cleanText = preg_replace('/\b(?:100|30|50)\b/i', '', $cleanText);
         // Ozel olarak firsat modundaki skorlari (ornegin 78/100, skorum 78, vb.) temizle
         $cleanText = preg_replace('/(?:skor|score)[^\d]+([0-9]+(?:\.[0-9]+)?)/ui', '', $cleanText);
         $cleanText = preg_replace('/([0-9]+(?:\.[0-9]+)?)\s*\/\s*100/ui', '', $cleanText);
+        $cleanText = preg_replace('/\b(?:100|30|50)\b/i', '', $cleanText);
 
-        $allAllowed = array_merge($allowedPrices, $allowedRsi, $allowedMacd, $allowedVolume, $allowedPercentages);
         preg_match_all('/([0-9]{2,}(?:\.[0-9]+)?)/u', $cleanText, $priceMatches);
         
-                foreach ($priceMatches[1] as $price) {
+        foreach ($priceMatches[1] as $price) {
             $p = (float) str_replace(",", ".", $price);
             if (in_array(round($p), [14, 20, 50, 100, 200, 40])) continue;
             
@@ -544,8 +526,7 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
             // Ama kusuratli fiyatlar (orn. 5.50) kontrol edilsin.
             if ($p == round($p) && $p <= 10) continue;
 
-            if (!$this->isCloseEnough($p, $allAllowed, 2.0)) {
-                if ($this->isCloseEnough($p, $allNumbersInSource ?? [], 2.0)) continue; // GUVENLIK AGI (Recursive)
+            if (!$this->isCloseEnough($p, $allNumbersInSource, 2.0)) {
                 $io->error("Halusinasyon tespiti! Uydurulan sayi/fiyat: " . $price);
                 $pos = strpos($aiText, (string)$price);
                 if ($pos !== false) {
@@ -557,10 +538,9 @@ EOT . "\n" . json_encode($portfolioBatchData, JSON_PRETTY_PRINT | JSON_UNESCAPED
                 return false; 
             }
         }
-
+        
         return true;
     }
-
     private function askBatchAi(string $prompt, array $batchData, SymfonyStyle $io, bool $opportunityMode): array
     {
         
