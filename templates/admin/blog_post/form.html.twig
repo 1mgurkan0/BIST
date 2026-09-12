@@ -1,0 +1,142 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}{{ is_new ? 'Yeni Yazı' : 'Yazıyı Düzenle' }}{% endblock %}
+{% block page_title %}{{ is_new ? 'Yeni Yazı' : 'Yazıyı Düzenle' }}{% endblock %}
+
+{% block stylesheets %}
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+    {{ form_start(form, {'attr': {'novalidate': 'novalidate'}}) }}
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="admin-card p-4 mb-4">
+                {{ form_row(form.title) }}
+                {{ form_row(form.slug) }}
+                {{ form_row(form.excerpt) }}
+
+                {{ form_label(form.content) }}
+                {{ form_widget(form.content, {'attr': {'class': 'd-none'}}) }}
+                <div id="quillEditor" style="background-color: #fff; color: #000; border-radius: 0.375rem; min-height: 300px;"></div>
+            </div>
+
+            <div class="admin-card p-4">
+                <h6 class="text-secondary text-uppercase small mb-3">SEO</h6>
+                {{ form_row(form.metaTitle) }}
+                {{ form_row(form.metaDescription) }}
+                {{ form_row(form.canonicalUrl) }}
+                {{ form_row(form.focusKeyword) }}
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="admin-card p-4 mb-4">
+                {{ form_row(form.status) }}
+                {{ form_row(form.category) }}
+                {{ form_row(form.tags) }}
+            </div>
+
+            <div class="admin-card p-4 mb-4">
+                <h6 class="text-secondary text-uppercase small mb-3">Öne Çıkan Görsel</h6>
+                {{ form_widget(form.ogImage, {'attr': {'class': 'd-none'}}) }}
+
+                <div id="ogImagePreview" class="mb-2">
+                    {% if post.ogImage %}
+                        <img src="{{ asset(post.ogImage.path) }}" class="w-100 rounded" style="aspect-ratio: 16/9; object-fit: cover;">
+                    {% else %}
+                        <div class="border border-secondary rounded d-flex align-items-center justify-content-center text-secondary" style="aspect-ratio: 16/9;">
+                            <i class="bi bi-image fs-2"></i>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <button type="button" class="btn btn-outline-light w-100 btn-sm" data-bs-toggle="modal" data-bs-target="#mediaPickerModal">
+                    <i class="bi bi-images"></i> Medyadan Seç
+                </button>
+                <button type="button" class="btn btn-outline-danger w-100 btn-sm mt-2" onclick="clearOgImage()">
+                    <i class="bi bi-x-lg"></i> Kaldır
+                </button>
+            </div>
+
+            <button type="submit" class="btn btn-warning fw-bold text-dark w-100">
+                <i class="bi bi-check-lg"></i> Kaydet
+            </button>
+            <a href="{{ path('admin_blog_post_index') }}" class="btn btn-outline-secondary w-100 mt-2">Vazgeç</a>
+        </div>
+    </div>
+
+    <div class="modal fade" id="mediaPickerModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content" style="background-color: #1f2937; border: 1px solid #374151;">
+                <div class="modal-header border-secondary">
+                    <h6 class="modal-title text-light">Görsel Seç</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        {% for media in mediaItems %}
+                            <div class="col-4 col-md-3">
+                                <div class="border border-secondary rounded p-1" style="cursor: pointer;" onclick="selectOgImage({{ media.id }}, '{{ asset(media.path) }}')">
+                                    <img src="{{ asset(media.path) }}" class="w-100 rounded" style="aspect-ratio: 1; object-fit: cover;">
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="col-12 text-center text-secondary py-4">
+                                Henüz medya yok. Önce <a href="{{ path('admin_media_index') }}" class="text-warning">Medya</a> sayfasından görsel yükle.
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{ form_end(form) }}
+{% endblock %}
+
+{% block javascripts %}
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+    <script>
+        const quill = new Quill('#quillEditor', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ header: [2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['link', 'image', 'blockquote'],
+                    ['clean']
+                ]
+            }
+        });
+
+        const rawTextarea = document.getElementById('blog_post_content');
+
+        if (rawTextarea.value) {
+            quill.clipboard.dangerouslyPasteHTML(rawTextarea.value);
+        }
+
+        quill.on('text-change', function () {
+         rawTextarea.value = quill.root.innerHTML;
+        });
+
+        const formEl = rawTextarea.closest('form');
+        formEl.addEventListener('submit', function () {
+         rawTextarea.value = quill.root.innerHTML;
+            });
+
+        function selectOgImage(id, url) {
+            document.getElementById('blog_post_ogImage').value = id;
+            document.getElementById('ogImagePreview').innerHTML =
+                '<img src="' + url + '" class="w-100 rounded" style="aspect-ratio: 16/9; object-fit: cover;">';
+            bootstrap.Modal.getInstance(document.getElementById('mediaPickerModal')).hide();
+        }
+
+        function clearOgImage() {
+            document.getElementById('blog_post_ogImage').value = '';
+            document.getElementById('ogImagePreview').innerHTML =
+                '<div class="border border-secondary rounded d-flex align-items-center justify-content-center text-secondary" style="aspect-ratio: 16/9;"><i class="bi bi-image fs-2"></i></div>';
+        }
+    </script>
+{% endblock %}

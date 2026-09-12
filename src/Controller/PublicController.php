@@ -8,6 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Annotation\Route;
+use App\Repository\BlogPostRepository;
 
 class PublicController extends AbstractController
 {
@@ -84,14 +85,45 @@ class PublicController extends AbstractController
     }
 
     #[Route("/blog", name: "app_blog")]
-    public function blog(): Response
+    public function blog(Request $request, BlogPostRepository $repository): Response
     {
-        return $this->render("public/blog.html.twig");
+        $page = max(1, (int) $request->query->get('page', 1));
+        $limit = 9;
+        $offset = ($page - 1) * $limit;
+
+        $posts = $repository->findPublished($limit, $offset);
+        $total = $repository->countPublished();
+
+        return $this->render("public/blog.html.twig", [
+            'posts' => $posts,
+            'currentPage' => $page,
+            'totalPages' => (int) ceil($total / $limit),
+        ]);
     }
 
-    #[Route("/sitemap.xml", name: "app_sitemap", defaults: ["_format" => "xml"])]
-    public function sitemap(): Response
+    #[Route("/blog/{slug}", name: "app_blog_show")]
+    public function blogShow(string $slug, BlogPostRepository $repository): Response
     {
-        return new Response("xml", 200, ["Content-Type" => "text/xml"]);
+        $post = $repository->findPublishedBySlug($slug);
+
+        if (!$post) {
+            throw $this->createNotFoundException('Yazı bulunamadı.');
+        }
+
+        return $this->render("public/blog_show.html.twig", [
+            'post' => $post,
+        ]);
+    }
+
+     #[Route("/sitemap.xml", name: "app_sitemap", defaults: ["_format" => "xml"])]
+    public function sitemap(BlogPostRepository $repository): Response
+    {
+        $posts = $repository->findPublished(1000, 0);
+
+        $content = $this->renderView('sitemap.xml.twig', [
+            'posts' => $posts,
+        ]);
+
+        return new Response($content, 200, ["Content-Type" => "text/xml"]);
     }
 }

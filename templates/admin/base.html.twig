@@ -68,17 +68,17 @@
             <a href="{{ path('admin_dashboard') }}" class="admin-nav-link {{ app.request.attributes.get('_route') == 'admin_dashboard' ? 'active' : '' }}">
                 <i class="bi bi-grid-1x2"></i> Panel
             </a>
-            <a href="{{ path('admin_dashboard') }}" class="admin-nav-link">
+            <a href="{{ path('admin_blog_post_index') }}" class="admin-nav-link {{ app.request.attributes.get('_route') starts with 'admin_blog_post' ? 'active' : '' }}">
                 <i class="bi bi-journal-text"></i> Yazılar
             </a>
-            <a href="{{ path('admin_dashboard') }}" class="admin-nav-link">
+            <a href="{{ path('admin_blog_category_index') }}" class="admin-nav-link {{ app.request.attributes.get('_route') starts with 'admin_blog_category' ? 'active' : '' }}">
                 <i class="bi bi-tags"></i> Kategoriler
             </a>
-            <a href="{{ path('admin_dashboard') }}" class="admin-nav-link">
-                <i class="bi bi-bookmark"></i> Etiketler
+            <a href="{{ path('admin_blog_tag_index') }}" class="admin-nav-link {{ app.request.attributes.get('_route') starts with 'admin_blog_tag' ? 'active' : '' }}">
+                 <i class="bi bi-bookmark"></i> Etiketler
             </a>
-            <a href="{{ path('admin_dashboard') }}" class="admin-nav-link">
-                <i class="bi bi-images"></i> Medya
+            <a href="{{ path('admin_media_index') }}" class="admin-nav-link {{ app.request.attributes.get('_route') starts with 'admin_media' ? 'active' : '' }}">
+                 <i class="bi bi-images"></i> Medya
             </a>
             <hr class="border-secondary opacity-25 my-3">
             <a href="{{ path('app-home') }}" class="admin-nav-link">

@@ -24,3 +24,5 @@
 .env.test
 .env.dev
 .images
+public/uploads/media/*
+!public/uploads/media/.gitkeep

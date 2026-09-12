@@ -1,0 +1,61 @@
+{% extends 'admin/base.html.twig' %}
+
+{% block title %}Medya{% endblock %}
+{% block page_title %}Medya Kütüphanesi{% endblock %}
+
+{% block content %}
+    {% for message in app.flashes('success') %}
+        <div class="alert alert-success">{{ message }}</div>
+    {% endfor %}
+    {% for message in app.flashes('danger') %}
+        <div class="alert alert-danger">{{ message }}</div>
+    {% endfor %}
+
+    <div class="admin-card p-4 mb-4">
+        <h6 class="text-secondary text-uppercase small mb-3">Görsel Yükle</h6>
+        <form method="post" action="{{ path('admin_media_upload') }}" enctype="multipart/form-data">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label small text-secondary">Dosyalar (JPG, PNG, WEBP, GIF)</label>
+                    <input type="file" name="files[]" class="form-control" multiple required accept="image/jpeg,image/png,image/webp,image/gif">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-secondary">Alt metin (tek dosyada geçerli)</label>
+                    <input type="text" name="altText" class="form-control" placeholder="Görsel açıklaması">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-warning fw-bold text-dark w-100">
+                        <i class="bi bi-upload"></i> Yükle
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="row g-3">
+        {% for media in mediaItems %}
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="admin-card p-2 h-100">
+                    <img src="{{ asset(media.path) }}" alt="{{ media.altText }}" class="w-100 rounded mb-2" style="aspect-ratio: 1; object-fit: cover;">
+                    <div class="text-truncate small text-secondary" title="{{ media.originalName }}">{{ media.originalName }}</div>
+                    <div class="text-secondary" style="font-size: 0.7rem;">
+                        {% if media.width and media.height %}{{ media.width }}×{{ media.height }} · {% endif %}{{ (media.size / 1024)|round }} KB
+                    </div>
+                    <div class="d-flex gap-1 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-light flex-grow-1" onclick="navigator.clipboard.writeText('{{ asset(media.path) }}'); this.innerText='Kopyalandı';">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                        <form method="post" action="{{ path('admin_media_delete', {id: media.id}) }}" onsubmit="return confirm('Silinsin mi?');">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete-media-' ~ media.id) }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="col-12 text-center text-secondary py-5">Henüz görsel yok.</div>
+        {% endfor %}
+    </div>
+{% endblock %}

@@ -1,12 +1,59 @@
 {% extends "base.html.twig" %}
 {% block title %}Blog - BAM Terminal{% endblock %}
-{% block meta_description %}Borsa, teknik analiz, yapay zeka ve algoritmik yatirimlar �zerine g�ncel makaleler.{% endblock %}
-{% block robots %}noindex, follow{% endblock %}
+{% block meta_description %}Borsa, teknik analiz, yapay zeka ve algoritmik yatırımlar üzerine güncel makaleler.{% endblock %}
+{% block robots %}index, follow{% endblock %}
 {% block content %}
-<div class="container py-5 mt-5 text-light text-center">
-    <h1>BAM Blog</h1>
-    <p class="lead mt-3 text-secondary">I�erik yakinda eklenecektir.</p>
+<div class="container py-5 mt-4">
+    <div class="text-center mb-5">
+        <h1 class="text-light fw-bold">BAM Blog</h1>
+        <p class="lead text-secondary">Borsa, teknik analiz ve yapay zeka üzerine güncel yazılar.</p>
+    </div>
+
+    {% if posts is empty %}
+        <div class="text-center text-secondary py-5">
+            <i class="bi bi-journal-x fs-1 d-block mb-3"></i>
+            Henüz yayınlanmış yazı yok.
+        </div>
+    {% else %}
+        <div class="row g-4">
+            {% for post in posts %}
+                <div class="col-md-6 col-lg-4">
+                    <a href="{{ path('app_blog_show', {slug: post.slug}) }}" class="text-decoration-none">
+                        <div class="card-custom h-100 overflow-hidden">
+                            {% if post.ogImage %}
+                                <img src="{{ asset(post.ogImage.path) }}" alt="{{ post.ogImage.altText ?: post.title }}" class="w-100" style="aspect-ratio: 16/9; object-fit: cover;">
+                            {% else %}
+                                <div class="w-100 d-flex align-items-center justify-content-center text-secondary" style="aspect-ratio: 16/9; background-color: #111827;">
+                                    <i class="bi bi-image fs-1"></i>
+                                </div>
+                            {% endif %}
+                            <div class="p-4">
+                                {% if post.category %}
+                                    <span class="badge bg-warning text-dark mb-2">{{ post.category.name }}</span>
+                                {% endif %}
+                                <h5 class="text-light fw-bold">{{ post.title }}</h5>
+                                <p class="text-secondary small mb-2">{{ post.excerpt|default(post.content|striptags|slice(0, 120) ~ '...') }}</p>
+                                <div class="text-secondary" style="font-size: 0.8rem;">
+                                    <i class="bi bi-calendar3"></i> {{ post.publishedAt|date('d.m.Y') }}
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if totalPages > 1 %}
+            <nav class="mt-5">
+                <ul class="pagination justify-content-center">
+                    {% for i in 1..totalPages %}
+                        <li class="page-item {{ i == currentPage ? 'active' : '' }}">
+                            <a class="page-link" href="{{ path('app_blog', {page: i}) }}" style="background-color: #1f2937; border-color: #374151; color: {{ i == currentPage ? '#121826' : '#f3f4f6' }};">{{ i }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </nav>
+        {% endif %}
+    {% endif %}
 </div>
 {% endblock %}
-
-

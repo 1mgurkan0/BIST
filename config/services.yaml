@@ -58,3 +58,8 @@ services:
   App\Service\BistUniverseService:
     arguments:
       $configuredSymbols: '%env(default:bist_scan_symbols:BIST_SCAN_SYMBOLS)%'
+
+  App\Service\MediaUploader:
+    arguments:
+      $uploadDir: '%kernel.project_dir%/public/uploads/media'
+        
